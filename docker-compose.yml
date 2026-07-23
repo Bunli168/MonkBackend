@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: monk_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: monk_db
+      MYSQL_USER: monk_user
+      MYSQL_PASSWORD: monk_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/initDb.sql:/docker-entrypoint-initdb.d/initDb.sql
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql_data:

@@ -1,0 +1,46 @@
+{
+  "name": "monk-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Monk Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "init-db": "node scripts/initDb.js",
+    "sync-villages": "node dev-scripts/sync_missing_villages.js"
+  },
+  "keywords": [
+    "monk",
+    "management",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "joi": "^18.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
+    "mysql2": "^3.6.5",
+    "node-telegram-bot-api": "^1.2.0",
+    "nodemailer": "^6.9.7",
+    "qrcode": "^1.5.3",
+    "sequelize": "^6.37.8",
+    "socket.io": "^4.6.0",
+    "speakeasy": "^2.0.0",
+    "uuid": "^9.0.1",
+    "xss-clean": "^0.1.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
