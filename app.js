@@ -15,12 +15,7 @@ const messageRoutes = require('./routes/messages.js');
 const reportRoutes = require('./routes/reports.js');
 const reportCategoryRoutes = require('./routes/reportCategories.js');
 const publicContentRoutes = require('./routes/publicContents.js');
-const monkSurveyRoutes = require('./routes/monkSurvey.js');
-const surveyRoutes = require('./routes/surveys.js');
-const surveyTargetRoutes = require('./routes/surveyTargets.js');
-const sectionRoutes = require('./routes/sections.js');
-const questionRoutes = require('./routes/questions.js');
-const studentSurveyRoutes = require('./routes/studentSurveys.js');
+
 const provinceRoutes = require('./routes/provinces.js');
 const districtRoutes = require('./routes/districts.js');
 const communeRoutes = require('./routes/communes.js');
@@ -103,12 +98,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/report-categories', reportCategoryRoutes);
 app.use('/api/public-contents', publicContentRoutes);
 app.use('/api/statistics', statisticsRoutes);
-app.use('/api/monk-surveys', monkSurveyRoutes);
-app.use('/api/surveys', surveyRoutes);
-app.use('/api/survey-targets', surveyTargetRoutes);
-app.use('/api/sections', sectionRoutes);
-app.use('/api/questions', questionRoutes);
-app.use('/api/student-surveys', studentSurveyRoutes);
+
 app.use('/api/provinces', provinceRoutes);
 app.use('/api/districts', districtRoutes);
 app.use('/api/communes', communeRoutes);

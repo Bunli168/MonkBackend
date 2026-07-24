@@ -14,14 +14,7 @@ const PublicContent = require('./PublicContent');
 const OtpSession = require('./OtpSession');
 const PasswordResetToken = require('./PasswordResetToken');
 const RefreshToken = require('./RefreshToken');
-const MonkSurvey = require('./MonkSurvey');
-const StudentSurvey = require('./StudentSurvey');
-const Survey = require('./Survey');
-const SurveySection = require('./SurveySection');
-const SurveyQuestion = require('./SurveyQuestion');
-const SurveyResponse = require('./SurveyResponse');
-const SurveyAnswer = require('./SurveyAnswer');
-const SurveyTarget = require('./SurveyTarget');
+
 const ReportCategory = require('./ReportCategory');
 const Province = require('./Province');
 const District = require('./District');
@@ -120,41 +113,7 @@ FinePayment.belongsTo(User, { foreignKey: 'user_id', as: 'Payer' });
 User.hasMany(FinePayment, { foreignKey: 'collected_by', as: 'CollectedFines' });
 FinePayment.belongsTo(User, { foreignKey: 'collected_by', as: 'Collector' });
 
-// 16. User <-> MonkSurvey (One-to-One)
-User.hasOne(MonkSurvey, { foreignKey: 'user_id' });
-MonkSurvey.belongsTo(User, { foreignKey: 'user_id' });
 
-// 16b. User <-> StudentSurvey (One-to-One)
-User.hasOne(StudentSurvey, { foreignKey: 'user_id' });
-StudentSurvey.belongsTo(User, { foreignKey: 'user_id' });
-
-// 17. Survey Relationships
-Survey.belongsTo(User, { as: 'creator', foreignKey: 'created_by' });
-User.hasMany(Survey, { foreignKey: 'created_by' });
-
-Survey.belongsTo(SurveyTarget, { as: 'target', foreignKey: 'target_id' });
-SurveyTarget.hasMany(Survey, { foreignKey: 'target_id' });
-
-Survey.belongsTo(User, { as: 'targetTeacher', foreignKey: 'target_teacher_id' });
-User.hasMany(Survey, { foreignKey: 'target_teacher_id' });
-
-Survey.hasMany(SurveySection, { as: 'sections', foreignKey: 'survey_id' });
-SurveySection.belongsTo(Survey, { foreignKey: 'survey_id' });
-
-SurveySection.hasMany(SurveyQuestion, { as: 'questions', foreignKey: 'section_id' });
-SurveyQuestion.belongsTo(SurveySection, { foreignKey: 'section_id' });
-
-Survey.hasMany(SurveyResponse, { foreignKey: 'survey_id' });
-SurveyResponse.belongsTo(Survey, { foreignKey: 'survey_id' });
-
-User.hasMany(SurveyResponse, { foreignKey: 'user_id' });
-SurveyResponse.belongsTo(User, { foreignKey: 'user_id' });
-
-SurveyResponse.hasMany(SurveyAnswer, { as: 'answers', foreignKey: 'response_id' });
-SurveyAnswer.belongsTo(SurveyResponse, { foreignKey: 'response_id' });
-
-SurveyQuestion.hasMany(SurveyAnswer, { foreignKey: 'question_id' });
-SurveyAnswer.belongsTo(SurveyQuestion, { foreignKey: 'question_id' });
 
 // 18. Location Table Associations
 // Province <-> District (One-to-Many)
@@ -246,14 +205,6 @@ module.exports = {
   OtpSession,
   PasswordResetToken,
   RefreshToken,
-  MonkSurvey,
-  StudentSurvey,
-  Survey,
-  SurveySection,
-  SurveyQuestion,
-  SurveyResponse,
-  SurveyAnswer,
-  SurveyTarget,
   Province,
   District,
   Commune,

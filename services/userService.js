@@ -278,19 +278,6 @@ const userService = {
       });
     }
 
-    // Create MonkSurvey biography record if role is Monk (role_id 3) or Bhikkhu (role_id 7)
-    if (resolvedRoleId === 3 || resolvedRoleId === 7) {
-      const { MonkSurvey } = require('../models');
-      await MonkSurvey.create({
-        user_id: user.id,
-        surname_name: `${sanitizedLastNameKh} ${sanitizedFirstNameKh}`,
-        date_of_birth: dobVal,
-        poo_wat: null,
-        current_wat: null,
-        phone_number: phoneVal
-      });
-    }
-
     // Send welcome email if there is a personal_email or fallback to login email
     const emailTarget = data.personal_email || loginEmail;
     const fullName    = [firstName, lastName].filter(Boolean).join(' ');
@@ -397,10 +384,26 @@ const userService = {
     const offset = (parseInt(page, 10) - 1) * limit;
 
     let orderClause = [['created_at', 'DESC']];
+    if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
+      orderClause = [
+        ['role_id', 'DESC'],
+        [UserProfile, 'kut_id', 'ASC'],
+        ['created_at', 'DESC']
+      ];
+    }
+
     if (sortBy && sortBy !== 'undefined') {
       const sOrder = (sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
       if (sortBy === 'createdAt') {
-        orderClause = [['created_at', sOrder]];
+        if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
+          orderClause = [
+            ['role_id', 'DESC'],
+            [UserProfile, 'kut_id', 'ASC'],
+            ['created_at', sOrder]
+          ];
+        } else {
+          orderClause = [['created_at', sOrder]];
+        }
       } else if (sortBy === 'username') {
         orderClause = [[UserProfile, 'first_name_kh', sOrder]];
       } else if (sortBy === 'email') {
@@ -469,7 +472,7 @@ const userService = {
   },
 
   async getUserFullProfile(userId) {
-    const { Kut, MonkSurvey } = require('../models');
+    const { Kut } = require('../models');
     const user = await User.findByPk(userId, {
       attributes: { exclude: ['password', 'verification_token'] },
       include: [
@@ -479,8 +482,7 @@ const userService = {
           include: [{ model: Kut }]
         },
         { model: Address },
-        { model: Document },
-        { model: MonkSurvey }
+        { model: Document }
       ]
     });
 
