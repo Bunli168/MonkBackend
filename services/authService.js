@@ -229,8 +229,7 @@ const authService = {
       attributes: { exclude: ['password', 'verification_token'] },
       include: [
         { model: require('../models').UserProfile },
-        { model: require('../models').Address },
-        { model: require('../models').MonkSurvey }
+        { model: require('../models').Address }
       ]
     });
     if (!user) throw new Error('User not found');

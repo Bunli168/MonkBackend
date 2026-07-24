@@ -15,8 +15,9 @@ const messageRoutes = require('./routes/messages.js');
 const reportRoutes = require('./routes/reports.js');
 const reportCategoryRoutes = require('./routes/reportCategories.js');
 const publicContentRoutes = require('./routes/publicContents.js');
-
+const monkSurveysRoutes = require('./routes/monkSurveys.js');
 const provinceRoutes = require('./routes/provinces.js');
+const locationRoutes = require('./routes/locations');
 const districtRoutes = require('./routes/districts.js');
 const communeRoutes = require('./routes/communes.js');
 const villageRoutes = require('./routes/villages.js');
@@ -97,9 +98,11 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/report-categories', reportCategoryRoutes);
 app.use('/api/public-contents', publicContentRoutes);
+app.use('/api/monk-surveys', monkSurveysRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
 app.use('/api/provinces', provinceRoutes);
+app.use('/api/locations', locationRoutes);
 app.use('/api/districts', districtRoutes);
 app.use('/api/communes', communeRoutes);
 app.use('/api/villages', villageRoutes);

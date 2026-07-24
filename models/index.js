@@ -5,6 +5,7 @@ const Role = require('./Role');
 const Kut = require('./Kut');
 const User = require('./User');
 const UserProfile = require('./UserProfile');
+const MonkSurvey = require('./MonkSurvey');
 const Address = require('./Address');
 const Document = require('./Document');
 const Message = require('./Message');
@@ -44,6 +45,10 @@ User.belongsTo(User, { foreignKey: 'created_by', as: 'Creator' });
 // 2. User <-> UserProfile (One-to-One)
 User.hasOne(UserProfile, { foreignKey: 'user_id' });
 UserProfile.belongsTo(User, { foreignKey: 'user_id' });
+
+// 2.5. User <-> MonkSurvey (One-to-One)
+User.hasOne(MonkSurvey, { foreignKey: 'user_id' });
+MonkSurvey.belongsTo(User, { foreignKey: 'user_id' });
 
 // 3. Kut <-> UserProfile (One-to-Many)
 Kut.hasMany(UserProfile, { foreignKey: 'kut_id' });
@@ -195,6 +200,7 @@ module.exports = {
   Kut,
   User,
   UserProfile,
+  MonkSurvey,
   Address,
   Document,
   Message,

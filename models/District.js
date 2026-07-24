@@ -2,7 +2,11 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const District = sequelize.define('District', {
-  province_id: { type: DataTypes.INTEGER, allowNull: false },
+  id: {
+    type: DataTypes.STRING(100),
+    primaryKey: true
+  },
+  province_id: { type: DataTypes.STRING(100), allowNull: false },
   name: { type: DataTypes.STRING(100), allowNull: false },
   name_en: { type: DataTypes.STRING(100) }
 }, {
