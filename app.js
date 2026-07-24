@@ -98,7 +98,9 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/report-categories', reportCategoryRoutes);
 app.use('/api/public-contents', publicContentRoutes);
+const studentSurveysRoutes = require('./routes/studentSurveys.js');
 app.use('/api/monk-surveys', monkSurveysRoutes);
+app.use('/api/student-surveys', studentSurveysRoutes);
 app.use('/api/statistics', statisticsRoutes);
 
 app.use('/api/provinces', provinceRoutes);

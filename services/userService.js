@@ -322,7 +322,7 @@ const userService = {
 
     // Authorization logic for Mekudi (Role ID 2)
     if (requestingUser && requestingUser.role_id === 2) {
-      const allowedRoles = [3, 4, 7];
+      const allowedRoles = [2, 3, 4, 7];
       if (parsedRoleIds) {
         const filtered = parsedRoleIds.filter(r => allowedRoles.includes(r));
         where.role_id = { [Op.in]: filtered.length ? filtered : [] };
@@ -384,7 +384,12 @@ const userService = {
     const offset = (parseInt(page, 10) - 1) * limit;
 
     let orderClause = [['created_at', 'DESC']];
-    if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
+    if (requestingUser && requestingUser.role_id === 2) {
+      orderClause = [
+        [require('sequelize').literal('CASE WHEN "User"."role_id" = 2 THEN 1 WHEN "User"."role_id" = 7 THEN 2 WHEN "User"."role_id" = 3 THEN 3 ELSE 4 END'), 'ASC'],
+        ['created_at', 'DESC']
+      ];
+    } else if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
       orderClause = [
         ['role_id', 'DESC'],
         [UserProfile, 'kut_id', 'ASC'],
@@ -395,7 +400,12 @@ const userService = {
     if (sortBy && sortBy !== 'undefined') {
       const sOrder = (sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
       if (sortBy === 'createdAt') {
-        if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
+        if (requestingUser && requestingUser.role_id === 2) {
+          orderClause = [
+            [require('sequelize').literal('CASE WHEN "User"."role_id" = 2 THEN 1 WHEN "User"."role_id" = 7 THEN 2 WHEN "User"."role_id" = 3 THEN 3 ELSE 4 END'), 'ASC'],
+            ['created_at', sOrder]
+          ];
+        } else if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
           orderClause = [
             ['role_id', 'DESC'],
             [UserProfile, 'kut_id', 'ASC'],

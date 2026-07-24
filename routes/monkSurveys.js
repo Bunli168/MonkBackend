@@ -11,12 +11,13 @@ router.get('/', authenticate, async (req, res) => {
     const surveys = await MonkSurvey.findAll({
       include: [{
         model: User,
-        attributes: ['id', 'email'],
+        attributes: ['id', 'email', 'role_id'],
         include: [{ model: UserProfile, attributes: ['avatar_url', 'first_name_kh', 'last_name_kh', 'date_of_birth', 'phone_number', 'chhaya_number', 'from_wat'] }]
       }]
     });
     res.json({ success: true, data: surveys });
   } catch (error) {
+    require('fs').writeFileSync('debug_error.log', error.stack || error.message);
     console.error('Error fetching all monk surveys:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
@@ -31,7 +32,7 @@ router.get('/me', authenticate, async (req, res) => {
       where: { user_id: req.user.id },
       include: [{
         model: User,
-        attributes: ['id', 'email'],
+        attributes: ['id', 'email', 'role_id'],
         include: [{ model: UserProfile, attributes: ['avatar_url', 'first_name_kh', 'last_name_kh', 'date_of_birth', 'phone_number'] }]
       }]
     });
@@ -86,7 +87,7 @@ router.get('/:userId', authenticate, async (req, res) => {
       where: { user_id: userId },
       include: [{
         model: User,
-        attributes: ['id', 'email'],
+        attributes: ['id', 'email', 'role_id'],
         include: [{ model: UserProfile, attributes: ['avatar_url', 'first_name_kh', 'last_name_kh', 'date_of_birth', 'phone_number'] }]
       }]
     });
