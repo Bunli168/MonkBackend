@@ -60,21 +60,41 @@ exports.createRequest = async (req, res) => {
         try {
             if (telegramBot) {
                 const { Op } = require('sequelize');
-                // Find all Mekudis (2) with a linked Telegram account
-                const admins = await User.findAll({
-                    where: {
-                        role_id: 2,
-                        telegram_chat_id: { [Op.not]: null }
-                    }
-                });
+                
+                const monkProfile = await UserProfile.findOne({ where: { user_id: req.user.id } });
+                const monkName = monkProfile ? `${monkProfile.first_name_kh} ${monkProfile.last_name_kh}` : `User ID ${req.user.id}`;
+                
+                const sDate = new Date(start_date);
+                const eDate = new Date(end_date);
+                const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+                
+                const kutIdStr = monkProfile && monkProfile.kut_id ? monkProfile.kut_id : 'N/A';
+                let mekudiNameStr = 'N/A';
+                
+                let targetMekudis = [];
 
-                if (admins.length > 0) {
-                    const monkProfile = await UserProfile.findOne({ where: { user_id: req.user.id } });
-                    const monkName = monkProfile ? `${monkProfile.first_name_kh} ${monkProfile.last_name_kh}` : `User ID ${req.user.id}`;
+                if (kutIdStr !== 'N/A') {
+                    // Find the Mekudi(s) specifically assigned to this Kuti
+                    targetMekudis = await User.findAll({
+                        where: { 
+                            role_id: 2, 
+                            telegram_chat_id: { [Op.not]: null } 
+                        },
+                        include: [{ 
+                            model: UserProfile, 
+                            where: { kut_id: kutIdStr } 
+                        }]
+                    });
                     
-                    const message = `🔔 *New Leave Request*\n\n*Monk:* ${monkName}\n*From:* ${start_date}\n*To:* ${end_date}\n*Reason:* ${reason}`;
+                    if (targetMekudis.length > 0 && targetMekudis[0].UserProfile) {
+                        mekudiNameStr = `${targetMekudis[0].UserProfile.first_name_kh} ${targetMekudis[0].UserProfile.last_name_kh}`;
+                    }
+                }
+
+                if (targetMekudis.length > 0) {
+                    const message = `🔔 *New Leave Request*\n\n*Monk:* ${monkName}\n*Kuti:* ${kutIdStr}\n*Mekudi:* ${mekudiNameStr}\n*From:* ${diffDays} day(s)\n*Reason:* ${reason}`;
                     
-                    for (const admin of admins) {
+                    for (const admin of targetMekudis) {
                         telegramBot.sendMessage(admin.telegram_chat_id, message, { 
                             parse_mode: 'Markdown',
                             reply_markup: {
@@ -98,7 +118,6 @@ exports.createRequest = async (req, res) => {
     }
 };
 
-// Monks: Get their own requests
 exports.getMyRequests = async (req, res) => {
     try {
         const { retreat_event_id } = req.query;
@@ -123,8 +142,75 @@ exports.getMyRequests = async (req, res) => {
         });
         res.json(requests);
     } catch (error) {
-        console.error('Error fetching own leave requests:', error);
-        res.status(500).json({ message: 'Failed to fetch leave requests' });
+        console.error('Error fetching my requests:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// Monks: Update a leave request
+exports.updateRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { start_date, end_date, reason } = req.body;
+
+        const leaveRequest = await LeaveRequest.findOne({ where: { id, user_id: req.user.id } });
+
+        if (!leaveRequest) {
+            return res.status(404).json({ message: 'Leave request not found' });
+        }
+
+        if (leaveRequest.status === 'approved' || leaveRequest.status === 'rejected') {
+            return res.status(400).json({ message: `Cannot edit a request that is already ${leaveRequest.status}` });
+        }
+
+        // Check for overlapping leave requests excluding this one
+        const { Op } = require('sequelize');
+        const overlappingRequest = await LeaveRequest.findOne({
+            where: {
+                id: { [Op.ne]: id },
+                user_id: req.user.id,
+                status: { [Op.notIn]: ['rejected'] },
+                [Op.or]: [
+                    {
+                        start_date: { [Op.lte]: end_date },
+                        end_date: { [Op.gte]: start_date }
+                    }
+                ]
+            }
+        });
+
+        if (overlappingRequest) {
+            return res.status(400).json({ message: 'You already have a leave request during this period.' });
+        }
+
+        await leaveRequest.update({ start_date, end_date, reason });
+
+        res.json({ message: 'Leave request updated successfully', leaveRequest });
+    } catch (error) {
+        console.error('Error updating leave request:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// Monks: Delete a leave request
+exports.deleteRequest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const leaveRequest = await LeaveRequest.findOne({ where: { id, user_id: req.user.id } });
+
+        if (!leaveRequest) {
+            return res.status(404).json({ message: 'Leave request not found' });
+        }
+
+        if (leaveRequest.status === 'approved') {
+            return res.status(400).json({ message: 'Cannot delete an approved leave request' });
+        }
+
+        await leaveRequest.destroy();
+        res.json({ message: 'Leave request deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting leave request:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
@@ -267,6 +353,17 @@ exports.updateStatus = async (req, res) => {
             }
         }
 
+        // Notify user via Socket.IO
+        try {
+            const { emitToUser } = require('../config/socket');
+            emitToUser(leaveRequest.user_id, 'leave_request_updated', {
+                id: leaveRequest.id,
+                status: workflow.nextStatus
+            });
+        } catch (e) {
+            console.error('Socket emit error:', e);
+        }
+
         res.json({ message: workflow.message, leaveRequest });
 
         // --- TELEGRAM NOTIFICATION TO MONK ---
@@ -278,7 +375,11 @@ exports.updateStatus = async (req, res) => {
                     let statusText = workflow.nextStatus.toUpperCase();
                     if (workflow.nextStatus === 'pending_superadmin') statusText = 'PENDING SUPER ADMIN APPROVAL';
                     
-                    const message = `${statusEmoji} *Leave Request Update*\n\nYour leave request from *${leaveRequest.start_date}* to *${leaveRequest.end_date}* is now:\n\n*${statusText}*`;
+                    const sDate = new Date(leaveRequest.start_date);
+                    const eDate = new Date(leaveRequest.end_date);
+                    const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+
+                    const message = `${statusEmoji} *Leave Request Update*\n\nYour leave request for *${diffDays} day(s)* is now:\n\n*${statusText}*`;
                     telegramBot.sendMessage(monkUser.telegram_chat_id, message, { parse_mode: 'Markdown' }).catch(err => console.error('Telegram send error:', err));
                 }
 
@@ -301,8 +402,17 @@ exports.updateStatus = async (req, res) => {
                     const superAdmins = await User.findAll({ where: { role_id: 1, telegram_chat_id: { [Op.not]: null } } });
                     const monkProfile = await UserProfile.findOne({ where: { user_id: leaveRequest.user_id } });
                     const monkNameStr = monkProfile ? `${monkProfile.first_name_kh} ${monkProfile.last_name_kh}` : `User ID ${leaveRequest.user_id}`;
+                    const kutIdStr = monkProfile && monkProfile.kut_id ? monkProfile.kut_id : 'N/A';
+                    
+                    const mekudiProfile = await UserProfile.findOne({ where: { user_id: req.user.id } });
+                    const mekudiNameStr = mekudiProfile ? `${mekudiProfile.first_name_kh} ${mekudiProfile.last_name_kh}` : `User ID ${req.user.id}`;
+
+                    const sDate = new Date(leaveRequest.start_date);
+                    const eDate = new Date(leaveRequest.end_date);
+                    const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+
                     for (const sa of superAdmins) {
-                        const message = `🔔 *Leave Request Forwarded*\n\n*Monk:* ${monkNameStr}\n*From:* ${leaveRequest.start_date}\n*To:* ${leaveRequest.end_date}\n*Reason:* ${leaveRequest.reason}`;
+                        const message = `🔔 *Leave Request Forwarded*\n\n*Monk:* ${monkNameStr}\n*Kuti:* ${kutIdStr}\n*Forwarded By:* ${mekudiNameStr}\n*From:* ${diffDays} day(s)\n*Reason:* ${leaveRequest.reason}`;
                         telegramBot.sendMessage(sa.telegram_chat_id, message, {
                             parse_mode: 'Markdown',
                             reply_markup: {

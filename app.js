@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const hpp = require('hpp');
 const http = require('http');
 const config = require('./config/index.js');
 const { initializeSocket } = require('./config/socket.js');
@@ -66,6 +67,16 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Strict rate limiting for Auth routes to prevent brute-force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per 15 minutes
+  message: 'Too many authentication attempts, please try again after 15 minutes.'
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/verify-otp', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+
 const xss = require('xss-clean');
 
 // Body parsing middleware
@@ -75,6 +86,9 @@ app.use(cookieParser());
 
 // Data sanitization against XSS
 app.use(xss());
+
+// Prevent HTTP Parameter Pollution
+app.use(hpp());
 
 // Health check endpoint
 app.get('/health', (req, res) => {

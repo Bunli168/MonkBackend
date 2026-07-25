@@ -5,10 +5,16 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { leaveRequestValidation } = require('../middleware/validate');
 
 // Monks create a leave request
-router.post('/', authenticate, authorize(['MONK', 'BHIKKHU', 'ATTENDANCETAKER']), leaveRequestValidation, leaveRequestController.createRequest);
+router.post('/', authenticate, leaveRequestValidation, leaveRequestController.createRequest);
 
 // Monks get their own requests
-router.get('/my', authenticate, authorize(['MONK', 'BHIKKHU', 'ATTENDANCETAKER']), leaveRequestController.getMyRequests);
+router.get('/my', authenticate, leaveRequestController.getMyRequests);
+
+// Monks update their own requests
+router.put('/:id', authenticate, leaveRequestValidation, leaveRequestController.updateRequest);
+
+// Monks delete their own requests
+router.delete('/:id', authenticate, leaveRequestController.deleteRequest);
 
 // Admin/Mekudi get all requests
 router.get('/', authenticate, leaveRequestController.getAllRequests);

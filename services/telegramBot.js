@@ -1,5 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api');
-const { User, LeaveRequest, UserProfile, Role } = require('../models');
+const { User, LeaveRequest, UserProfile, Role, Attendance } = require('../models');
 const { transitionLeaveRequest } = require('../utils/leaveRequestWorkflow');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -112,6 +112,40 @@ if (token) {
             leaveRequest.status = workflow.nextStatus;
             leaveRequest.approved_by = adminUser.id;
             await leaveRequest.save();
+
+            // If fully approved, automatically create/update Attendance records for the date range
+            if (workflow.nextStatus === 'approved') {
+                const startDate = new Date(leaveRequest.start_date);
+                const endDate = new Date(leaveRequest.end_date);
+                
+                const profile = await UserProfile.findOne({ where: { user_id: leaveRequest.user_id } });
+                
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    const dateStr = d.toISOString().split('T')[0];
+                    
+                    await Attendance.upsert({
+                        user_id: leaveRequest.user_id,
+                        retreat_event_id: leaveRequest.retreat_event_id,
+                        date: dateStr,
+                        status: 'permission',
+                        notes: 'Approved Leave: ' + leaveRequest.reason,
+                        seating_row_id: profile ? profile.seating_row_id : null,
+                        seat_number: profile ? profile.seat_number : null,
+                        kut_id: profile ? profile.kut_id : null
+                    });
+                }
+            }
+
+            // Notify user via Socket.IO
+            try {
+                const { emitToUser } = require('../config/socket');
+                emitToUser(leaveRequest.user_id, 'leave_request_updated', {
+                    id: leaveRequest.id,
+                    status: workflow.nextStatus
+                });
+            } catch (e) {
+                console.error('Socket emit error:', e);
+            }
 
             // Notify Monk
             const monkUser = await User.findByPk(leaveRequest.user_id);
