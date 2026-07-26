@@ -120,7 +120,8 @@ const userService = {
     const emailLower = email ? email.toLowerCase().trim() : null;
     const seatNumberVal = data.seat_number ? String(data.seat_number).trim() : null;
 
-    if (emailLower) {
+    const isSuperAdminCreator = !creatorUser || creatorUser.role_id === 1 || (creatorUser.Role && creatorUser.Role.name === 'SuperAdmin');
+    if (emailLower && isSuperAdminCreator) {
       // ── MODE 1: Custom Email ──────────────────────────────────────────────
       const existing = await User.findOne({ where: { email: emailLower } });
       if (existing) {
@@ -281,10 +282,63 @@ const userService = {
     // Send welcome email if there is a personal_email or fallback to login email
     const emailTarget = data.personal_email || loginEmail;
     const fullName    = [firstName, lastName].filter(Boolean).join(' ');
+    sendWelcomeEmail(emailTarget, loginEmail, generatedPassword, fullName, verificationToken)
+      .catch(e => console.warn('Welcome email failed (non-fatal):', e.message));
+
+    // Send Telegram Notification to Super Admins & Admins
     try {
-      await sendWelcomeEmail(emailTarget, loginEmail, generatedPassword, fullName, verificationToken);
+      const telegramBot = require('./memberTelegramBot') || require('./telegramBot');
+      if (telegramBot && telegramBot.sendMessage) {
+        const { Op } = require('sequelize');
+        const notifyUsers = await User.findAll({ 
+          where: { 
+            role_id: { [Op.in]: [1, 2] }, 
+            telegram_chat_id: { [Op.not]: null } 
+          } 
+        });
+        const roleLabels = {
+          'SUPERADMIN': 'មេដឹកនាំ (Super Admin)',
+          'ADMIN': 'មេកុដិ (Admin)',
+          'MONK': 'ព្រះសង្ឃ (Monk)',
+          'BHIKKHU': 'ភិក្ខុ (Bhikkhu)',
+          'STUDENT': 'និស្សិត (Student)',
+          'MEKUDI': 'មេកុដិ (Mekudi)'
+        };
+        const roleStr = roleLabels[(role.name || '').toUpperCase()] || role.name;
+        const creatorName = creatorUser ? (creatorUser.name || creatorUser.email) : (creatorId ? `ID: ${creatorId}` : 'System Admin');
+        const memberName = `${sanitizedLastNameKh} ${sanitizedFirstNameKh}`.trim();
+        const phoneStr = phoneVal ? phoneVal : 'មិនមាន (N/A)';
+        let kutNameStr = 'មិនមាន (N/A)';
+        if (assignedKutId) {
+          try {
+            const { Kut } = require('../models');
+            const kutObj = await Kut.findByPk(assignedKutId);
+            if (kutObj) kutNameStr = kutObj.name;
+            else kutNameStr = `កុដិលេខ ${assignedKutId}`;
+          } catch (err) {
+            kutNameStr = `កុដិលេខ ${assignedKutId}`;
+          }
+        }
+        
+        const notifyText = `🎉 *មានសមាជិកថ្មីចុះឈ្មោះ! (New Member Registered)*\n\n` +
+          `👤 *ឈ្មោះ ៖* ${memberName}\n` +
+          `🏷 *តួនាទី ៖* ${roleStr}\n` +
+          `🏠 *កុដិ ៖* ${kutNameStr}\n` +
+          `📧 *អ៊ីមែល ៖* ${loginEmail}\n` +
+          `📱 *លេខទូរស័ព្ទ ៖* ${phoneStr}\n` +
+          `👨‍💼 *ចុះឈ្មោះដោយ ៖* ${creatorName}\n` +
+          `⏰ *កាលបរិច្ឆេទ ៖* ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' })}`;
+
+        const sentChatIds = new Set();
+        for (const u of notifyUsers) {
+          if (u.id !== user.id && u.telegram_chat_id && !sentChatIds.has(u.telegram_chat_id)) {
+            sentChatIds.add(u.telegram_chat_id);
+            telegramBot.sendMessage(u.telegram_chat_id, notifyText, { parse_mode: 'Markdown' }).catch(() => {});
+          }
+        }
+      }
     } catch (e) {
-      console.warn('Welcome email failed (non-fatal):', e.message);
+      console.warn('Telegram notification failed (non-fatal):', e.message);
     }
 
     return {

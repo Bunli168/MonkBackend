@@ -30,8 +30,9 @@ const ledgerRoutes = require('./routes/ledger.js');
 const fineRoutes = require('./routes/fines.js');
 const leaveRequestRoutes = require('./routes/leaveRequests.js');
 
-// Initialize Telegram Bot
+// Initialize Telegram Bots
 require('./services/telegramBot.js');
+require('./services/memberTelegramBot.js');
 
 const app = express();
 const httpServer = http.createServer(app);
