@@ -55,16 +55,33 @@ const authService = {
 
       return { requireOtp: true, mfaType: 'totp', otpSessionToken: sessionToken };
     } 
-    // Super Admin fallback to Email OTP if TOTP not enabled
-    else if (user.role_id === 1) {
+    // Super Admin or Admin fallback to Telegram/Email OTP if TOTP not enabled
+    else if (user.role_id === 1 || user.role_id === 2 || (user.Role && ['admin', 'super_admin'].includes(user.Role.name.toLowerCase()))) {
       const otpCode = generateOtp();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
       const sessionToken = uuidv4();
 
       await OtpSession.create({ user_id: user.id, session_token: sessionToken, otp_code: otpCode, expires_at: expiresAt });
-      await sendOtpEmail(user.email, otpCode);
+      
+      let sentViaTelegram = false;
+      if (user.telegram_chat_id) {
+        try {
+          const telegramBot = require('./telegramBot') || require('./memberTelegramBot');
+          if (telegramBot && telegramBot.sendMessage) {
+            const notifyText = `🔐 *លេខកូដចូលប្រព័ន្ធ (Login Security OTP)*\n\nជម្រាបសួរ Admin,\nកូដសម្រាប់ Login ចូលប្រព័ន្ធគឺ៖ *${otpCode}*\n\n⏱ _កូដនេះមានសុពលភាព ៥ នាទី។ សូមកុំប្រាប់កូដនេះទៅកាន់នរណាម្នាក់!_`;
+            await telegramBot.sendMessage(user.telegram_chat_id, notifyText, { parse_mode: 'Markdown' });
+            sentViaTelegram = true;
+          }
+        } catch (err) {
+          console.error('Failed to send OTP via Telegram Bot:', err.message);
+        }
+      }
 
-      return { requireOtp: true, mfaType: 'email', otpSessionToken: sessionToken };
+      if (!sentViaTelegram) {
+        await sendOtpEmail(user.email, otpCode);
+      }
+
+      return { requireOtp: true, mfaType: sentViaTelegram ? 'telegram' : 'email', otpSessionToken: sessionToken };
     }
 
     const accessToken = generateAccessToken({ userId: user.id, email: user.email });
@@ -176,9 +193,26 @@ const authService = {
 
     await session.update({ used: true });
     await OtpSession.create({ user_id: user.id, session_token: newSessionToken, otp_code: newOtpCode, expires_at: expiresAt });
-    await sendOtpEmail(user.email, newOtpCode);
+    
+    let sentViaTelegram = false;
+    if (user.telegram_chat_id) {
+      try {
+        const telegramBot = require('./telegramBot') || require('./memberTelegramBot');
+        if (telegramBot && telegramBot.sendMessage) {
+          const notifyText = `🔐 *លេខកូដចូលប្រព័ន្ធថ្មី (Resent Security OTP)*\n\nជម្រាបសួរ Admin,\nកូដថ្មីសម្រាប់ Login ចូលប្រព័ន្ធគឺ៖ *${newOtpCode}*\n\n⏱ _កូដនេះមានសុពលភាព ៥ នាទី។_`;
+          await telegramBot.sendMessage(user.telegram_chat_id, notifyText, { parse_mode: 'Markdown' });
+          sentViaTelegram = true;
+        }
+      } catch (err) {
+        console.error('Failed to resend OTP via Telegram Bot:', err.message);
+      }
+    }
 
-    return { otpSessionToken: newSessionToken };
+    if (!sentViaTelegram) {
+      await sendOtpEmail(user.email, newOtpCode);
+    }
+
+    return { otpSessionToken: newSessionToken, mfaType: sentViaTelegram ? 'telegram' : 'email' };
   },
 
   async refreshToken(token) {
@@ -220,6 +254,27 @@ const authService = {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await user.update({ password: hashedPassword, must_change_password: false });
+
+    // Destroy all existing tokens to prevent unauthorized session hijacking
+    await RefreshToken.destroy({ where: { user_id: user.id } });
+
+    return { success: true };
+  },
+
+  async updateMyPassword(userId, currentPassword, newPassword) {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error('User not found');
+
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      throw new Error('ពាក្យសម្ងាត់បច្ចុប្បន្នមិនត្រឹមត្រូវទេ! (Current password is incorrect!)');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await user.update({ password: hashedPassword, must_change_password: false });
+
+    // Invalidate all other sessions/tokens so hacker B or stolen tokens are kicked out immediately!
+    await RefreshToken.destroy({ where: { user_id: userId } });
 
     return { success: true };
   },
@@ -426,6 +481,13 @@ const authService = {
     const isValid = verifyTotp(user.totp_secret, token);
     if (!isValid) throw new Error('Invalid TOTP token');
     await user.update({ totp_enabled: false, totp_secret: null });
+    return { success: true };
+  },
+
+  async unlinkTelegram(userId) {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error('User not found');
+    await user.update({ telegram_chat_id: null, telegram_username: null });
     return { success: true };
   },
 

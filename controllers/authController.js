@@ -206,6 +206,26 @@ class AuthController {
     }
   }
 
+  async updateMyPassword(req, res) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+      }
+      await authService.updateMyPassword(req.user.id, currentPassword, newPassword);
+      res.json({
+        success: true,
+        message: 'ប្តូរពាក្យសម្ងាត់ជោគជ័យ! (Password changed securely)'
+      });
+    } catch (error) {
+      console.error('Update my password error:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   async getProfile(req, res) {
     try {
       const user = await authService.getProfile(req.user.id);
@@ -366,6 +386,22 @@ class AuthController {
       res.status(500).json({
         success: false,
         message: 'Failed to disable TOTP'
+      });
+    }
+  }
+
+  async unlinkTelegram(req, res) {
+    try {
+      await authService.unlinkTelegram(req.user.id);
+      res.json({
+        success: true,
+        message: 'Telegram account unlinked successfully'
+      });
+    } catch (error) {
+      console.error('Telegram unlink error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to unlink Telegram account'
       });
     }
   }

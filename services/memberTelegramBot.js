@@ -1,5 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api');
-const { User, UserProfile } = require('../models');
+const { User, UserProfile, Role } = require('../models');
 
 const token = process.env.TELEGRAM_MEMBER_BOT_TOKEN;
 let bot = null;
@@ -32,6 +32,17 @@ if (token) {
                 return false;
             }
 
+            // Verify role: only Super Admin and Admin can link
+            if (!user.Role && Role) {
+                user = await User.findByPk(user.id, { include: [Role] });
+            }
+            const roleName = user.Role ? user.Role.name.toLowerCase() : '';
+            const isAdminRole = user.role_id === 1 || user.role_id === 2 || ['admin', 'super_admin'].includes(roleName);
+            if (!isAdminRole) {
+                bot.sendMessage(chatId, `⛔ *សិទ្ធិមិនគ្រប់គ្រាន់ (Access Denied)*\n\nសូមអភ័យទោស! Bot នេះត្រូវបានកំណត់សម្រាប់តែ **Admin** និង **Super Admin** ប៉ុណ្ណោះក្នុងការភ្ជាប់។ គណនីរបស់អ្នកមិនមានសិទ្ធិទេ។`, { parse_mode: 'Markdown' });
+                return false;
+            }
+
             user.telegram_chat_id = chatId.toString();
             user.telegram_username = username || null;
             await user.save();
@@ -56,7 +67,7 @@ if (token) {
         if (msg.contact && msg.contact.phone_number) {
             const linked = await handleAutoLink(msg.chat.id, msg.contact.phone_number, msg.from.username);
             if (!linked) {
-                bot.sendMessage(msg.chat.id, `❌ *រកមិនឃើញគណនីក្នុងប្រព័ន្ធទេ*\nសូមត្រួតពិនិត្យលេខទូរស័ព្ទក្នុង Profile របស់អ្នក ឬទាក់ទង Admin។`, { parse_mode: 'Markdown' });
+                bot.sendMessage(msg.chat.id, `❌ *រកមិនឃើញគណនីក្នុងប្រព័ន្ធ ឬគ្មានសិទ្ធិជា Admin*\nសូមត្រួតពិនិត្យលេខទូរស័ព្ទក្នុង Profile របស់អ្នក ឬទាក់ទង Super Admin។`, { parse_mode: 'Markdown' });
             }
             return;
         }
@@ -66,14 +77,14 @@ if (token) {
             if (/^(\+?855|0)\d{7,9}$/.test(text) || /\S+@\S+\.\S+/.test(text)) {
                 const linked = await handleAutoLink(msg.chat.id, text, msg.from.username);
                 if (!linked) {
-                    bot.sendMessage(msg.chat.id, `❌ *រកមិនឃើញគណនីសម្រាប់ "${text}" ទេ*\nសូមត្រួតពិនិត្យលេខទូរស័ព្ទ ឬអ៊ីមែលរបស់អ្នកឡើងវិញ។`, { parse_mode: 'Markdown' });
+                    bot.sendMessage(msg.chat.id, `❌ *រកមិនឃើញគណនី ឬគ្មានសិទ្ធិជា Admin សម្រាប់ "${text}" ទេ*\nសូមត្រួតពិនិត្យលេខទូរស័ព្ទ ឬអ៊ីមែលរបស់អ្នកឡើងវិញ។`, { parse_mode: 'Markdown' });
                 }
             }
         }
     });
 
     bot.on('polling_error', (error) => {
-        console.log('MEMBER BOT POLLING ERROR:', error);
+        console.log('BOT POLLING ERROR:', error);
     });
 
     // /start command with auto detection and 1-click contact button
@@ -87,8 +98,16 @@ if (token) {
         }
 
         // Check if already linked
-        const existingUser = await User.findOne({ where: { telegram_chat_id: chatId.toString() } });
+        const existingUser = await User.findOne({ where: { telegram_chat_id: chatId.toString() }, include: [Role] });
         if (existingUser) {
+            const roleName = existingUser.Role ? existingUser.Role.name.toLowerCase() : '';
+            const isAdminRole = existingUser.role_id === 1 || existingUser.role_id === 2 || ['admin', 'super_admin'].includes(roleName);
+            if (!isAdminRole) {
+                existingUser.telegram_chat_id = null;
+                existingUser.telegram_username = null;
+                await existingUser.save();
+                return bot.sendMessage(chatId, `⛔ *សិទ្ធិមិនគ្រប់គ្រាន់ (Access Denied)*\n\nសូមអភ័យទោស! Bot នេះត្រូវបានកំណត់សម្រាប់តែ **Admin** និង **Super Admin** ប៉ុណ្ណោះ។ គណនីរបស់អ្នកត្រូវបានផ្តាច់។`, { parse_mode: 'Markdown' });
+            }
             const userProfile = await UserProfile.findOne({ where: { user_id: existingUser.id } });
             const nameStr = userProfile ? `${userProfile.first_name_kh} ${userProfile.last_name_kh}` : existingUser.email;
             return bot.sendMessage(chatId, `✅ *គណនីរបស់អ្នកត្រូវបានភ្ជាប់រួចរាល់ហើយ! (Welcome Back!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${existingUser.email}\n\nលោកអ្នកនឹងទទួលបានសារ Alert រាល់ពេលមានសមាជិកថ្មីចុះឈ្មោះ! 🎉`, { parse_mode: 'Markdown' });

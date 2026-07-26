@@ -269,8 +269,36 @@ const userController = {
   async updateUser(req, res) {
     try {
       const { id } = req.params;
-      const user = await userService.getUserFullProfile(id);
+      const { User } = require('../models');
+      const user = await User.findByPk(id);
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+      // Prevent IDOR & Privilege Escalation (A is A, B cannot cheat)
+      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const isSuperAdmin = req.user.role_id === 1 || role === 'SUPERADMIN';
+      const isAdmin = req.user.role_id === 2 || role === 'ADMIN';
+
+      if (req.user.id !== parseInt(id) && !isSuperAdmin && !isAdmin) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Cannot modify another account' });
+      }
+      if (user.role_id === 1 && req.user.id !== user.id) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Nobody can modify a Super Admin account except themselves' });
+      }
+      if (user.role_id === 2 && !isSuperAdmin && req.user.id !== user.id) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Only Super Admin can modify an Admin account' });
+      }
+
+      // Prevent unauthorized tampering of sensitive security fields
+      if (!isSuperAdmin) {
+        delete req.body.role_id;
+        delete req.body.is_verified;
+        delete req.body.status;
+      }
+      delete req.body.password;
+      delete req.body.verification_token;
+      delete req.body.totp_secret;
+      delete req.body.telegram_chat_id;
+
       await user.update(req.body);
       res.status(200).json({ success: true, message: 'User updated successfully', data: user });
     } catch (error) {
@@ -283,11 +311,33 @@ const userController = {
     try {
       const { id } = req.params;
       const bcrypt = require('bcryptjs');
-      const { User } = require('../models');
+      const { User, RefreshToken } = require('../models');
       const user = await User.findByPk(id);
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+      // Prevent IDOR & Hacker cheating on Reset Password
+      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const isSuperAdmin = req.user.role_id === 1 || role === 'SUPERADMIN';
+      const isAdmin = req.user.role_id === 2 || role === 'ADMIN';
+
+      if (!isSuperAdmin && !isAdmin) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Only Admins can reset passwords' });
+      }
+      if (user.role_id === 1 && req.user.id !== user.id) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Cannot reset Super Admin password' });
+      }
+      if (user.role_id === 2 && !isSuperAdmin && req.user.id !== user.id) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Only Super Admin can reset Admin password' });
+      }
+
       const hashedPassword = await bcrypt.hash('Neakavorn@123', 10);
       await user.update({ password: hashedPassword, must_change_password: true });
+
+      // Kill all existing sessions/tokens for this user immediately so hacker or old session is disconnected!
+      if (RefreshToken) {
+        await RefreshToken.destroy({ where: { user_id: user.id } });
+      }
+
       res.status(200).json({ success: true, message: 'Password reset to default. User must change password on next login.' });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
