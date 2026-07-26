@@ -37,8 +37,81 @@ const attendanceController = {
         where,
         order: [['date', 'DESC'], ['createdAt', 'DESC']]
       });
+
+      // Merge approved leave requests into attendances to ensure all permissions appear
+      const leaveWhere = { status: 'approved' };
+      if (where.user_id) leaveWhere.user_id = where.user_id;
+      if (where.retreat_event_id) leaveWhere.retreat_event_id = where.retreat_event_id;
+      if (date) {
+        leaveWhere.start_date = { [Op.lte]: date };
+        leaveWhere.end_date = { [Op.gte]: date };
+      }
+
+      const approvedLeaves = await LeaveRequest.findAll({
+        where: leaveWhere,
+        include: [{
+          model: User,
+          attributes: ['id', 'email', 'phone'],
+          include: [{
+            model: UserProfile,
+            attributes: ['first_name_kh', 'last_name_kh', 'first_name_en', 'last_name_en', 'kut_id', 'seat_number', 'seating_row_id']
+          }]
+        }]
+      });
+
+      const existingDatesMap = new Map();
+      attendances.forEach(att => {
+        const key = `${att.user_id}_${att.date}`;
+        existingDatesMap.set(key, att);
+      });
+
+      const mergedAttendances = [...attendances];
+
+      for (const leave of approvedLeaves) {
+        const startDate = new Date(leave.start_date);
+        const endDate = new Date(leave.end_date);
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          if (date && date !== dateStr) continue;
+
+          const key = `${leave.user_id}_${dateStr}`;
+          if (existingDatesMap.has(key)) {
+            const existingAtt = existingDatesMap.get(key);
+            if (existingAtt.status !== 'permission') {
+              existingAtt.status = 'permission';
+              if (existingAtt.dataValues) existingAtt.dataValues.status = 'permission';
+              const leaveNote = `Approved Leave: ${leave.reason}`;
+              existingAtt.notes = existingAtt.notes ? `${existingAtt.notes} (${leaveNote})` : leaveNote;
+              if (existingAtt.dataValues) existingAtt.dataValues.notes = existingAtt.notes;
+            }
+          } else {
+            if (status && status !== 'permission') continue;
+
+            const profile = leave.User?.UserProfile;
+            const virt = {
+              id: `leave_${leave.id}_${dateStr}`,
+              user_id: leave.user_id,
+              date: dateStr,
+              status: 'permission',
+              notes: `Approved Leave: ${leave.reason}`,
+              retreat_event_id: leave.retreat_event_id || where.retreat_event_id || 1,
+              kut_id: profile ? profile.kut_id : null,
+              seating_row_id: profile ? profile.seating_row_id : null,
+              seat_number: profile ? profile.seat_number : null,
+              createdAt: leave.updatedAt || leave.createdAt,
+              User: leave.User
+            };
+            if (kut_id && String(virt.kut_id) !== String(kut_id)) continue;
+            mergedAttendances.push(virt);
+            existingDatesMap.set(key, virt);
+          }
+        }
+      }
+
+      mergedAttendances.sort((a, b) => new Date(b.date) - new Date(a.date));
       
-      res.status(200).json({ success: true, data: attendances });
+      res.status(200).json({ success: true, data: mergedAttendances });
     } catch (error) {
       console.error('Get all attendances error:', error);
       res.status(500).json({ success: false, message: error.message });
@@ -515,7 +588,7 @@ const attendanceController = {
           },
           {
             model: Attendance,
-            attributes: ['status', 'fine_amount'],
+            attributes: ['date', 'status', 'fine_amount'],
             where: attendanceWhere,
             required: false
           },
@@ -531,10 +604,10 @@ const attendanceController = {
           },
           {
             model: LeaveRequest,
-            attributes: ['status'],
+            attributes: ['status', 'start_date', 'end_date'],
             where: {
               ...attendanceWhere,
-              status: { [Op.in]: ['pending_mekudi', 'approved_mekudi'] }
+              status: { [Op.in]: ['pending_mekudi', 'approved_mekudi', 'pending_superadmin', 'pending', 'approved'] }
             },
             required: false
           }
@@ -554,9 +627,11 @@ const attendanceController = {
         
         let absentCount = 0;
         let permissionCount = 0;
+        const attendanceDatesMap = new Map();
         
         if (user.Attendances && user.Attendances.length > 0) {
           user.Attendances.forEach(att => {
+            if (att.date) attendanceDatesMap.set(att.date, att);
             if (att.status === 'absent') absentCount++;
             if (att.status === 'permission') permissionCount++;
           });
@@ -564,7 +639,28 @@ const attendanceController = {
         
         let pendingLeavesCount = 0;
         if (user.LeaveRequests && user.LeaveRequests.length > 0) {
-          pendingLeavesCount = user.LeaveRequests.length;
+          user.LeaveRequests.forEach(lr => {
+            if (['pending_mekudi', 'pending_superadmin', 'pending'].includes(lr.status)) {
+              pendingLeavesCount++;
+            } else if (lr.status === 'approved') {
+              const startDate = new Date(lr.start_date);
+              const endDate = new Date(lr.end_date);
+              for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                if (!attendanceDatesMap.has(dateStr)) {
+                  permissionCount++;
+                  attendanceDatesMap.set(dateStr, { status: 'permission' });
+                } else {
+                  const existingAtt = attendanceDatesMap.get(dateStr);
+                  if (existingAtt.status === 'absent') {
+                    absentCount--;
+                    permissionCount++;
+                    existingAtt.status = 'permission';
+                  }
+                }
+              }
+            }
+          });
         }
         
         // Fine rule: 3 permissions = 1 absent, 3 absents = 5 dollars
@@ -621,18 +717,23 @@ const attendanceController = {
       try {
         attendances = await Attendance.findAll({
           where: attendanceWhere,
-          attributes: ['status', 'fine_amount']
+          attributes: ['date', 'status', 'fine_amount']
         });
       } catch (error) {
         if (error?.name === 'SequelizeDatabaseError' || /unknown column|does not have column/i.test(error?.message || '')) {
           attendances = await Attendance.findAll({
             where: attendanceWhere,
-            attributes: ['status']
+            attributes: ['date', 'status']
           });
         } else {
           throw error;
         }
       }
+
+      const attendanceDatesMap = new Map();
+      attendances.forEach(att => {
+        if (att.date) attendanceDatesMap.set(att.date, att);
+      });
 
       let absentCount = 0;
       let permissionCount = 0;
@@ -647,6 +748,30 @@ const attendanceController = {
           totalFine += parseFloat(fineValue);
         }
       });
+
+      // Also fetch approved leave requests for this user to include any permissions not already recorded
+      const leaveWhere = { user_id: userId, status: 'approved' };
+      if (activeYearId) leaveWhere.retreat_event_id = activeYearId;
+      const approvedLeaves = await LeaveRequest.findAll({ where: leaveWhere });
+
+      for (const leave of approvedLeaves) {
+        const startDate = new Date(leave.start_date);
+        const endDate = new Date(leave.end_date);
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          if (!attendanceDatesMap.has(dateStr)) {
+            permissionCount++;
+            attendanceDatesMap.set(dateStr, { status: 'permission' });
+          } else {
+            const existingAtt = attendanceDatesMap.get(dateStr);
+            if (existingAtt.status === 'absent') {
+              absentCount--;
+              permissionCount++;
+              existingAtt.status = 'permission';
+            }
+          }
+        }
+      }
 
       res.status(200).json({
         success: true,

@@ -71,11 +71,11 @@ exports.createRequest = async (req, res) => {
                 const kutIdStr = monkProfile && monkProfile.kut_id ? monkProfile.kut_id : 'N/A';
                 let mekudiNameStr = 'N/A';
                 
-                let targetMekudis = [];
+                let targetAdmins = [];
 
                 if (kutIdStr !== 'N/A') {
                     // Find the Mekudi(s) specifically assigned to this Kuti
-                    targetMekudis = await User.findAll({
+                    const targetMekudis = await User.findAll({
                         where: { 
                             role_id: 2, 
                             telegram_chat_id: { [Op.not]: null } 
@@ -86,15 +86,42 @@ exports.createRequest = async (req, res) => {
                         }]
                     });
                     
-                    if (targetMekudis.length > 0 && targetMekudis[0].UserProfile) {
-                        mekudiNameStr = `${targetMekudis[0].UserProfile.first_name_kh} ${targetMekudis[0].UserProfile.last_name_kh}`;
+                    if (targetMekudis.length > 0) {
+                        if (targetMekudis[0].UserProfile) {
+                            mekudiNameStr = `${targetMekudis[0].UserProfile.first_name_kh} ${targetMekudis[0].UserProfile.last_name_kh}`;
+                        }
+                        targetAdmins.push(...targetMekudis);
                     }
                 }
 
-                if (targetMekudis.length > 0) {
+                if (monkProfile && monkProfile.seating_row_id) {
+                    const { SeatingRow } = require('../models');
+                    const monkRow = await SeatingRow.findByPk(monkProfile.seating_row_id);
+                    if (monkRow && monkRow.assigned_taker_id) {
+                        const taker = await User.findOne({
+                            where: { id: monkRow.assigned_taker_id, telegram_chat_id: { [Op.not]: null } }
+                        });
+                        if (taker && !targetAdmins.find(a => a.id === taker.id)) {
+                            targetAdmins.push(taker);
+                        }
+                    }
+                }
+
+                if (targetAdmins.length === 0) {
+                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify available Admins/Takers/Leaders
+                    const fallbackAdmins = await User.findAll({
+                        where: {
+                            role_id: { [Op.in]: [2, 3, 4] },
+                            telegram_chat_id: { [Op.not]: null }
+                        }
+                    });
+                    targetAdmins.push(...fallbackAdmins);
+                }
+
+                if (targetAdmins.length > 0) {
                     const message = `🔔 *New Leave Request*\n\n*Monk:* ${monkName}\n*Kuti:* ${kutIdStr}\n*Mekudi:* ${mekudiNameStr}\n*From:* ${diffDays} day(s)\n*Reason:* ${reason}`;
                     
-                    for (const admin of targetMekudis) {
+                    for (const admin of targetAdmins) {
                         telegramBot.sendMessage(admin.telegram_chat_id, message, { 
                             parse_mode: 'Markdown',
                             reply_markup: {
@@ -234,14 +261,15 @@ exports.getAllRequests = async (req, res) => {
                 const uRole = role.toUpperCase();
                 if (uRole === 'SUPERADMIN') {
                     whereClause.status = 'pending_superadmin';
-                } else if (['ADMIN', 'MEKUDI'].includes(uRole)) {
+                } else if (['ADMIN', 'MEKUDI', 'ATTENDANCETAKER'].includes(uRole)) {
                     whereClause.status = { [Op.or]: ['pending', 'pending_mekudi'] };
                 } else {
                     whereClause.status = { [Op.or]: ['pending', 'pending_mekudi', 'pending_superadmin'] };
                 }
             } else if (status === 'approved') {
                 const role = req.user?.Role?.name || req.user?.role || '';
-                if (role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'MEKUDI') {
+                const uRole = role.toUpperCase();
+                if (['ADMIN', 'MEKUDI', 'ATTENDANCETAKER'].includes(uRole)) {
                     whereClause.status = { [Op.or]: ['approved', 'pending_superadmin'] };
                 } else {
                     whereClause.status = 'approved';
@@ -268,14 +296,16 @@ exports.getAllRequests = async (req, res) => {
         if (role.toUpperCase() === 'MEKUDI' && req.user.UserProfile?.kut_id) {
             includeUser.required = true;
             includeUser.include[0].where = { kut_id: req.user.UserProfile.kut_id };
-        } else if (role.toUpperCase() === 'ADMIN') {
+        } else if (role.toUpperCase() === 'ATTENDANCETAKER') {
             const { SeatingRow } = require('../models');
             const { Op } = require('sequelize');
             const myRows = await SeatingRow.findAll({ where: { assigned_taker_id: req.user.id } });
             const myRowIds = myRows.map(r => r.id);
             
-            includeUser.required = true;
-            includeUser.include[0].where = { seating_row_id: { [Op.in]: myRowIds.length > 0 ? myRowIds : [-1] } };
+            if (myRowIds.length > 0) {
+                includeUser.required = true;
+                includeUser.include[0].where = { seating_row_id: { [Op.in]: myRowIds } };
+            }
         }
 
         const requests = await LeaveRequest.findAll({
@@ -337,19 +367,44 @@ exports.updateStatus = async (req, res) => {
             const UserProfile = require('../models/UserProfile');
             const profile = await UserProfile.findOne({ where: { user_id: leaveRequest.user_id } });
             
+            let retreatId = leaveRequest.retreat_event_id;
+            if (!retreatId) {
+                const RetreatEvent = require('../models/RetreatEvent');
+                const activeYear = await RetreatEvent.findOne({ where: { is_active: true } });
+                retreatId = activeYear ? activeYear.id : 1;
+            }
+
             for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
                 const dateStr = d.toISOString().split('T')[0];
                 
-                await Attendance.upsert({
-                    user_id: leaveRequest.user_id,
-                    retreat_event_id: leaveRequest.retreat_event_id,
-                    date: dateStr,
-                    status: 'permission',
-                    notes: 'Approved Leave: ' + leaveRequest.reason,
-                    seating_row_id: profile ? profile.seating_row_id : null,
-                    seat_number: profile ? profile.seat_number : null,
-                    kut_id: profile ? profile.kut_id : null
+                let existingAttendance = await Attendance.findOne({
+                    where: {
+                        user_id: leaveRequest.user_id,
+                        date: dateStr
+                    }
                 });
+
+                if (existingAttendance) {
+                    await existingAttendance.update({
+                        status: 'permission',
+                        notes: 'Approved Leave: ' + leaveRequest.reason,
+                        retreat_event_id: existingAttendance.retreat_event_id || retreatId,
+                        seating_row_id: profile ? profile.seating_row_id : existingAttendance.seating_row_id,
+                        seat_number: profile ? profile.seat_number : existingAttendance.seat_number,
+                        kut_id: profile ? profile.kut_id : existingAttendance.kut_id
+                    });
+                } else {
+                    await Attendance.create({
+                        user_id: leaveRequest.user_id,
+                        retreat_event_id: retreatId,
+                        date: dateStr,
+                        status: 'permission',
+                        notes: 'Approved Leave: ' + leaveRequest.reason,
+                        seating_row_id: profile ? profile.seating_row_id : null,
+                        seat_number: profile ? profile.seat_number : null,
+                        kut_id: profile ? profile.kut_id : null
+                    });
+                }
             }
         }
 

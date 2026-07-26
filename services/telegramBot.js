@@ -82,7 +82,7 @@ if (token) {
                 include: [{ model: Role, as: 'Role' }]
             });
 
-            if (!adminUser || ![1, 2].includes(adminUser.role_id)) {
+            if (!adminUser || ![1, 2, 3, 4].includes(adminUser.role_id)) {
                 return bot.answerCallbackQuery(query.id, { text: 'Unauthorized. Only Admins can perform this action.', show_alert: true });
             }
 
