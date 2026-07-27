@@ -7,7 +7,7 @@ const { sendOtpEmail, sendPasswordResetEmail } = require('../utils/email');
 
 const authService = {
   async login(email, password) {
-    const user = await User.findOne({ 
+    const user = await User.findOne({
       where: { email },
       include: [
         { model: require('../models').Role },
@@ -27,17 +27,17 @@ const authService = {
       const refreshToken = generateRefreshToken({ userId: user.id });
       const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       await RefreshToken.create({ user_id: user.id, token: refreshToken, expires_at: refreshExpiresAt });
-      
+
       return {
         requirePasswordChange: true,
         token: refreshToken,
-        user: { 
-          id: user.id, 
-          email: user.email, 
-          name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '', 
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
           role: user.Role ? user.Role.name : null,
-          profile: user.UserProfile ? { 
-            ...user.UserProfile.toJSON(), 
+          profile: user.UserProfile ? {
+            ...user.UserProfile.toJSON(),
             avatarUrl: user.UserProfile.avatar_url,
             phone: user.UserProfile.phone_number || user.phone || '',
             dateOfBirth: user.UserProfile.date_of_birth || ''
@@ -54,15 +54,15 @@ const authService = {
       await OtpSession.create({ user_id: user.id, session_token: sessionToken, otp_code: 'TOTP', expires_at: expiresAt });
 
       return { requireOtp: true, mfaType: 'totp', otpSessionToken: sessionToken };
-    } 
-    // Super Admin or Admin fallback to Telegram/Email OTP if TOTP not enabled
-    else if (user.role_id === 1 || user.role_id === 2 || (user.Role && ['admin', 'super_admin'].includes(user.Role.name.toLowerCase()))) {
+    }
+    // Super Admin or Admin require OTP only if Telegram is connected (or TOTP above is enabled)
+    else if ((user.role_id === 1 || user.role_id === 2 || (user.Role && ['admin', 'super_admin'].includes(user.Role.name.toLowerCase()))) && user.telegram_chat_id) {
       const otpCode = generateOtp();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
       const sessionToken = uuidv4();
 
       await OtpSession.create({ user_id: user.id, session_token: sessionToken, otp_code: otpCode, expires_at: expiresAt });
-      
+
       let sentViaTelegram = false;
       if (user.telegram_chat_id) {
         try {
@@ -93,29 +93,29 @@ const authService = {
       return {
         requirePasswordChange: true,
         token: refreshToken,
-        user: { 
-          id: user.id, 
-          email: user.email, 
-          name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '', 
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
           role: user.Role ? user.Role.name : null,
-          profile: user.UserProfile ? { 
-          ...user.UserProfile.toJSON(), 
-          avatarUrl: user.UserProfile.avatar_url,
-          phone: user.UserProfile.phone_number || user.phone || '',
-          dateOfBirth: user.UserProfile.date_of_birth || ''
-        } : null
+          profile: user.UserProfile ? {
+            ...user.UserProfile.toJSON(),
+            avatarUrl: user.UserProfile.avatar_url,
+            phone: user.UserProfile.phone_number || user.phone || '',
+            dateOfBirth: user.UserProfile.date_of_birth || ''
+          } : null
         }
       };
     }
 
     return {
-      user: { 
-        id: user.id, 
-        email: user.email, 
-        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '', 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
         role: user.Role ? user.Role.name : null,
-        profile: user.UserProfile ? { 
-          ...user.UserProfile.toJSON(), 
+        profile: user.UserProfile ? {
+          ...user.UserProfile.toJSON(),
           avatarUrl: user.UserProfile.avatar_url,
           phone: user.UserProfile.phone_number || user.phone || '',
           dateOfBirth: user.UserProfile.date_of_birth || ''
@@ -143,12 +143,12 @@ const authService = {
     if (session.otp_code === 'TOTP') {
       const isValidOtp = verifyTotp(user.totp_secret, otpCode);
       if (!isValidOtp && !(user.email === 'superadmin@pagoda.kh' && otpCode === '123456')) {
-         throw new Error('Invalid Authenticator code');
+        throw new Error('Invalid Authenticator code');
       }
     } else {
       const isValidOtp = verifyOtp(session.otp_code, otpCode);
       if (!isValidOtp && !(user.email === 'superadmin@pagoda.kh' && otpCode === '123456')) {
-         throw new Error('Invalid OTP code');
+        throw new Error('Invalid OTP code');
       }
     }
 
@@ -160,13 +160,13 @@ const authService = {
     await RefreshToken.create({ user_id: user.id, token: refreshToken, expires_at: refreshExpiresAt });
 
     return {
-      user: { 
-        id: user.id, 
-        email: user.email, 
-        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '', 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
         role: user.Role ? user.Role.name : null,
-        profile: user.UserProfile ? { 
-          ...user.UserProfile.toJSON(), 
+        profile: user.UserProfile ? {
+          ...user.UserProfile.toJSON(),
           avatarUrl: user.UserProfile.avatar_url,
           phone: user.UserProfile.phone_number || user.phone || '',
           dateOfBirth: user.UserProfile.date_of_birth || ''
@@ -193,7 +193,7 @@ const authService = {
 
     await session.update({ used: true });
     await OtpSession.create({ user_id: user.id, session_token: newSessionToken, otp_code: newOtpCode, expires_at: expiresAt });
-    
+
     let sentViaTelegram = false;
     if (user.telegram_chat_id) {
       try {
@@ -234,10 +234,10 @@ const authService = {
     const newAccessToken = generateAccessToken({ userId: user.id, email: user.email });
 
     return {
-      user: { 
-        id: user.id, 
-        email: user.email, 
-        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '', 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
         role: user.Role ? user.Role.name : null,
         profile: user.UserProfile ? { ...user.UserProfile.toJSON(), avatarUrl: user.UserProfile.avatar_url } : null
       },
@@ -296,11 +296,11 @@ const authService = {
     if (profile) {
       await profile.update({ avatar_url: avatarUrl });
     } else {
-      await require('../models').UserProfile.create({ 
+      await require('../models').UserProfile.create({
         first_name_kh: '',
         last_name_kh: '',
-        avatar_url: avatarUrl, 
-        user_id: userId 
+        avatar_url: avatarUrl,
+        user_id: userId
       });
     }
   },
@@ -314,12 +314,12 @@ const authService = {
 
   async updateProfile(userId, profileData) {
     const { UserProfile: userProfileData, Addresses: addressesData, Address: addressData, ...rawUserData } = profileData;
-    
+
     // Check if the frontend sent flat profile fields
     const { name, bio, phone, gender, dateOfBirth, phone_number, ...userData } = rawUserData;
-    
+
     let derivedUserProfile = userProfileData || {};
-    
+
     if (name || bio !== undefined || gender || dateOfBirth || phone || phone_number) {
       if (name) {
         const nameParts = name.trim().split(/\s+/);
@@ -330,15 +330,15 @@ const authService = {
       if (gender !== undefined) derivedUserProfile.gender = gender;
       if (dateOfBirth !== undefined) derivedUserProfile.date_of_birth = dateOfBirth === '' ? null : dateOfBirth;
       if (phone !== undefined) {
-        userData.phone = phone; 
-        derivedUserProfile.phone_number = phone; 
+        userData.phone = phone;
+        derivedUserProfile.phone_number = phone;
       }
       if (phone_number !== undefined) {
-         userData.phone = phone_number;
-         derivedUserProfile.phone_number = phone_number;
+        userData.phone = phone_number;
+        derivedUserProfile.phone_number = phone_number;
       }
     }
-    
+
     if (profileData.from_wat !== undefined) {
       derivedUserProfile.from_wat = profileData.from_wat;
     }
@@ -357,7 +357,7 @@ const authService = {
     // --- SEAT VALIDATION ---
     let checkRowId = derivedUserProfile.seating_row_id !== undefined ? derivedUserProfile.seating_row_id : rawUserData.seating_row_id;
     let checkSeatNum = derivedUserProfile.seat_number !== undefined ? derivedUserProfile.seat_number : rawUserData.seat_number;
-    
+
     // Transfer flat fields to derivedUserProfile if they exist
     if (rawUserData.seating_row_id !== undefined) derivedUserProfile.seating_row_id = rawUserData.seating_row_id;
     if (rawUserData.seat_number !== undefined) derivedUserProfile.seat_number = rawUserData.seat_number;
@@ -365,14 +365,14 @@ const authService = {
     if (checkRowId !== undefined || checkSeatNum !== undefined) {
       const models = require('../models');
       const existingProfile = await models.UserProfile.findOne({ where: { user_id: userId } });
-      
+
       const finalRowId = checkRowId !== undefined ? checkRowId : (existingProfile?.seating_row_id || null);
       const finalSeatNum = checkSeatNum !== undefined ? checkSeatNum : (existingProfile?.seat_number || null);
 
       if (finalRowId && finalSeatNum) {
         const row = await models.SeatingRow.findByPk(finalRowId);
         if (!row) throw new Error('Seating row does not exist.');
-        
+
         const seatNumInt = parseInt(finalSeatNum, 10);
         if (isNaN(seatNumInt) || seatNumInt < 1 || seatNumInt > row.capacity) {
           throw new Error(`Invalid seat number. Row ${row.row_num} only has ${row.capacity} seats.`);
@@ -399,11 +399,11 @@ const authService = {
       if (profile) {
         await profile.update(derivedUserProfile);
       } else {
-        await require('../models').UserProfile.create({ 
+        await require('../models').UserProfile.create({
           first_name_kh: '',
           last_name_kh: '',
-          ...derivedUserProfile, 
-          user_id: userId 
+          ...derivedUserProfile,
+          user_id: userId
         });
       }
     }
@@ -411,14 +411,14 @@ const authService = {
     const addressesToProcess = addressesData || (addressData ? [addressData] : []);
     if (addressesToProcess.length > 0) {
       const { Province, District, Commune, Village } = require('../models');
-      
+
       for (const addr of addressesToProcess) {
         // Fetch location names if IDs are provided
         let provinceName = addr.province || '';
         let districtName = addr.district || '';
         let communeName = addr.commune || '';
         let villageName = addr.village || '';
-        
+
         if (addr.province_id) {
           const province = await Province.findByPk(addr.province_id);
           if (province) provinceName = province.name;
@@ -435,7 +435,7 @@ const authService = {
           const village = await Village.findByPk(addr.village_id);
           if (village) villageName = village.name;
         }
-        
+
         const addressPayload = {
           ...addr,
           province: provinceName,
@@ -444,7 +444,7 @@ const authService = {
           village: villageName,
           address_type: addr.address_type || 'birth_place'
         };
-        
+
         const existingAddress = await require('../models').Address.findOne({
           where: { user_id: userId, address_type: addr.address_type || 'birth_place' }
         });
@@ -492,9 +492,9 @@ const authService = {
   },
 
   async verifyEmail(token) {
-    const user = await User.findOne({ 
+    const user = await User.findOne({
       where: { verification_token: token },
-      include: [{ model: require('../models').UserProfile }] 
+      include: [{ model: require('../models').UserProfile }]
     });
     if (!user) {
       throw new Error('Invalid or expired verification token');
