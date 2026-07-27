@@ -5,6 +5,19 @@ const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = requir
 const { generateOtp, verifyOtp, generateTotpSecret, verifyTotp } = require('../utils/otp');
 const { sendOtpEmail, sendPasswordResetEmail } = require('../utils/email');
 
+const formatUserData = (user) => ({
+  id: user.id,
+  email: user.email,
+  name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
+  role: user.Role ? user.Role.name : null,
+  profile: user.UserProfile ? {
+    ...user.UserProfile.toJSON(),
+    avatarUrl: user.UserProfile.avatar_url,
+    phone: user.UserProfile.phone_number || user.phone || '',
+    dateOfBirth: user.UserProfile.date_of_birth || ''
+  } : null
+});
+
 const authService = {
   async login(email, password) {
     const user = await User.findOne({
@@ -22,29 +35,6 @@ const authService = {
 
     if (!user.is_active) throw new Error('Account is inactive');
     if (!user.is_verified) throw new Error('Please verify your email first');
-
-    if (user.must_change_password) {
-      const refreshToken = generateRefreshToken({ userId: user.id });
-      const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      await RefreshToken.create({ user_id: user.id, token: refreshToken, expires_at: refreshExpiresAt });
-
-      return {
-        requirePasswordChange: true,
-        token: refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
-          role: user.Role ? user.Role.name : null,
-          profile: user.UserProfile ? {
-            ...user.UserProfile.toJSON(),
-            avatarUrl: user.UserProfile.avatar_url,
-            phone: user.UserProfile.phone_number || user.phone || '',
-            dateOfBirth: user.UserProfile.date_of_birth || ''
-          } : null
-        }
-      };
-    }
 
     // Check if TOTP is enabled
     if (user.totp_enabled) {
@@ -93,34 +83,12 @@ const authService = {
       return {
         requirePasswordChange: true,
         token: refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
-          role: user.Role ? user.Role.name : null,
-          profile: user.UserProfile ? {
-            ...user.UserProfile.toJSON(),
-            avatarUrl: user.UserProfile.avatar_url,
-            phone: user.UserProfile.phone_number || user.phone || '',
-            dateOfBirth: user.UserProfile.date_of_birth || ''
-          } : null
-        }
+        user: formatUserData(user)
       };
     }
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
-        role: user.Role ? user.Role.name : null,
-        profile: user.UserProfile ? {
-          ...user.UserProfile.toJSON(),
-          avatarUrl: user.UserProfile.avatar_url,
-          phone: user.UserProfile.phone_number || user.phone || '',
-          dateOfBirth: user.UserProfile.date_of_birth || ''
-        } : null
-      },
+      user: formatUserData(user),
       tokens: { accessToken, refreshToken }
     };
   },
@@ -159,19 +127,16 @@ const authService = {
     const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await RefreshToken.create({ user_id: user.id, token: refreshToken, expires_at: refreshExpiresAt });
 
+    if (user.must_change_password) {
+      return {
+        requirePasswordChange: true,
+        token: refreshToken,
+        user: formatUserData(user)
+      };
+    }
+
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
-        role: user.Role ? user.Role.name : null,
-        profile: user.UserProfile ? {
-          ...user.UserProfile.toJSON(),
-          avatarUrl: user.UserProfile.avatar_url,
-          phone: user.UserProfile.phone_number || user.phone || '',
-          dateOfBirth: user.UserProfile.date_of_birth || ''
-        } : null
-      },
+      user: formatUserData(user),
       accessToken,
       refreshToken
     };
@@ -234,13 +199,7 @@ const authService = {
     const newAccessToken = generateAccessToken({ userId: user.id, email: user.email });
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.UserProfile ? (user.UserProfile.first_name_kh || user.UserProfile.last_name_kh ? `${user.UserProfile.first_name_kh || ''} ${user.UserProfile.last_name_kh || ''}`.trim() : `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim()) : '',
-        role: user.Role ? user.Role.name : null,
-        profile: user.UserProfile ? { ...user.UserProfile.toJSON(), avatarUrl: user.UserProfile.avatar_url } : null
-      },
+      user: formatUserData(user),
       accessToken: newAccessToken
     };
   },
