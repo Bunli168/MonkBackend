@@ -53,8 +53,12 @@ app.use(cors({
     // Allow any localhost port in development
     if (!origin || /^http:\/\/localhost:\d+$/.test(origin)) {
       callback(null, true);
+    } else if (Array.isArray(config.corsOrigin) && config.corsOrigin.includes(origin)) {
+      callback(null, true);
+    } else if (config.corsOrigin === origin) {
+      callback(null, true);
     } else {
-      callback(null, config.corsOrigin);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true
