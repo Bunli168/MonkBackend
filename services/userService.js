@@ -120,8 +120,7 @@ const userService = {
     const emailLower = email ? email.toLowerCase().trim() : null;
     const seatNumberVal = data.seat_number ? String(data.seat_number).trim() : null;
 
-    const isSuperAdminCreator = !creatorUser || creatorUser.role_id === 1 || (creatorUser.Role && creatorUser.Role.name === 'SuperAdmin');
-    if (emailLower && isSuperAdminCreator) {
+    if (emailLower) {
       // ── MODE 1: Custom Email ──────────────────────────────────────────────
       const existing = await User.findOne({ where: { email: emailLower } });
       if (existing) {
@@ -207,15 +206,18 @@ const userService = {
     }
 
     // Create user record
-    const verificationToken = isSuperAdmin ? require('uuid').v4() : null;
+    // If a custom email was provided (emailLower is truthy), the user must verify their email.
+    // If the system auto-generated it (e.g. som.chai@monk.com), they cannot verify it so it's auto-verified.
+    const needsVerification = !!emailLower;
+    const verificationToken = needsVerification ? require('uuid').v4() : null;
 
     const user = await User.create({
       email:                loginEmail,
       password:             hashedPassword,
       role_id:              resolvedRoleId,
       is_active:            true,
-      is_verified:          !isSuperAdmin,
-      email_verified_at:    isSuperAdmin ? null : new Date(),
+      is_verified:          !needsVerification,
+      email_verified_at:    needsVerification ? null : new Date(),
       verification_token:   verificationToken,
       status:               'active',
       must_change_password: true
@@ -285,61 +287,6 @@ const userService = {
     sendWelcomeEmail(emailTarget, loginEmail, generatedPassword, fullName, verificationToken)
       .catch(e => console.warn('Welcome email failed (non-fatal):', e.message));
 
-    // Send Telegram Notification to Super Admins & Admins
-    try {
-      const telegramBot = require('./memberTelegramBot') || require('./telegramBot');
-      if (telegramBot && telegramBot.sendMessage) {
-        const { Op } = require('sequelize');
-        const notifyUsers = await User.findAll({ 
-          where: { 
-            role_id: { [Op.in]: [1, 2] }, 
-            telegram_chat_id: { [Op.not]: null } 
-          } 
-        });
-        const roleLabels = {
-          'SUPERADMIN': 'មេដឹកនាំ (Super Admin)',
-          'ADMIN': 'មេកុដិ (Admin)',
-          'MONK': 'ព្រះសង្ឃ (Monk)',
-          'BHIKKHU': 'ភិក្ខុ (Bhikkhu)',
-          'STUDENT': 'និស្សិត (Student)',
-          'MEKUDI': 'មេកុដិ (Mekudi)'
-        };
-        const roleStr = roleLabels[(role.name || '').toUpperCase()] || role.name;
-        const creatorName = creatorUser ? (creatorUser.name || creatorUser.email) : (creatorId ? `ID: ${creatorId}` : 'System Admin');
-        const memberName = `${sanitizedLastNameKh} ${sanitizedFirstNameKh}`.trim();
-        const phoneStr = phoneVal ? phoneVal : 'មិនមាន (N/A)';
-        let kutNameStr = 'មិនមាន (N/A)';
-        if (assignedKutId) {
-          try {
-            const { Kut } = require('../models');
-            const kutObj = await Kut.findByPk(assignedKutId);
-            if (kutObj) kutNameStr = kutObj.name;
-            else kutNameStr = `កុដិលេខ ${assignedKutId}`;
-          } catch (err) {
-            kutNameStr = `កុដិលេខ ${assignedKutId}`;
-          }
-        }
-        
-        const notifyText = `🎉 *មានសមាជិកថ្មីចុះឈ្មោះ! (New Member Registered)*\n\n` +
-          `👤 *ឈ្មោះ ៖* ${memberName}\n` +
-          `🏷 *តួនាទី ៖* ${roleStr}\n` +
-          `🏠 *កុដិ ៖* ${kutNameStr}\n` +
-          `📧 *អ៊ីមែល ៖* ${loginEmail}\n` +
-          `📱 *លេខទូរស័ព្ទ ៖* ${phoneStr}\n` +
-          `👨‍💼 *ចុះឈ្មោះដោយ ៖* ${creatorName}\n` +
-          `⏰ *កាលបរិច្ឆេទ ៖* ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' })}`;
-
-        const sentChatIds = new Set();
-        for (const u of notifyUsers) {
-          if (u.id !== user.id && u.telegram_chat_id && !sentChatIds.has(u.telegram_chat_id)) {
-            sentChatIds.add(u.telegram_chat_id);
-            telegramBot.sendMessage(u.telegram_chat_id, notifyText, { parse_mode: 'Markdown' }).catch(() => {});
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Telegram notification failed (non-fatal):', e.message);
-    }
 
     return {
       id:              user.id,

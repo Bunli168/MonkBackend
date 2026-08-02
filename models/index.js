@@ -9,15 +9,9 @@ const MonkSurvey = require('./MonkSurvey');
 const StudentSurvey = require('./StudentSurvey');
 const Address = require('./Address');
 const Document = require('./Document');
-const Message = require('./Message');
-const MessageRecipient = require('./MessageRecipient');
-const Report = require('./Report');
-const PublicContent = require('./PublicContent');
 const OtpSession = require('./OtpSession');
 const PasswordResetToken = require('./PasswordResetToken');
 const RefreshToken = require('./RefreshToken');
-
-const ReportCategory = require('./ReportCategory');
 const Province = require('./Province');
 const District = require('./District');
 const Commune = require('./Commune');
@@ -77,34 +71,6 @@ LeaveRequest.belongsTo(User, { foreignKey: 'approved_by', as: 'Approver' });
 // 6. Kut <-> Event (One-to-Many) removed
 // 7. Event <-> EventAttendee (One-to-Many) removed
 // 8. User <-> EventAttendee (User attending & Assigned by) removed
-
-// 10. User <-> Message (Sender)
-User.hasMany(Message, { foreignKey: 'sender_id' });
-Message.belongsTo(User, { foreignKey: 'sender_id' });
-
-// 11. Message <-> MessageRecipient (One-to-Many)
-Message.hasMany(MessageRecipient, { foreignKey: 'message_id' });
-MessageRecipient.belongsTo(Message, { foreignKey: 'message_id' });
-
-// 12. User <-> MessageRecipient (Receiver)
-User.hasMany(MessageRecipient, { foreignKey: 'receiver_id' });
-MessageRecipient.belongsTo(User, { foreignKey: 'receiver_id' });
-
-// 13. Kut <-> Report (One-to-Many)
-Kut.hasMany(Report, { foreignKey: 'kut_id' });
-Report.belongsTo(Kut, { foreignKey: 'kut_id' });
-
-// 14. User <-> Report (Reporter)
-User.hasMany(Report, { foreignKey: 'reported_by' });
-Report.belongsTo(User, { foreignKey: 'reported_by', as: 'Reporter' });
-
-// ReportCategory <-> Report (One-to-Many)
-ReportCategory.hasMany(Report, { foreignKey: 'category_id' });
-Report.belongsTo(ReportCategory, { foreignKey: 'category_id', as: 'category' });
-
-// 15. User <-> PublicContent (Publisher)
-User.hasMany(PublicContent, { foreignKey: 'published_by' });
-PublicContent.belongsTo(User, { foreignKey: 'published_by' });
 
 // Token Associations
 User.hasMany(OtpSession, { foreignKey: 'user_id' });
@@ -209,11 +175,6 @@ module.exports = {
   StudentSurvey,
   Address,
   Document,
-  Message,
-  MessageRecipient,
-  Report,
-  ReportCategory,
-  PublicContent,
   OtpSession,
   PasswordResetToken,
   RefreshToken,

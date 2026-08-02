@@ -20,7 +20,9 @@ const User = sequelize.define('User', {
   totp_enabled: { type: DataTypes.BOOLEAN, defaultValue: false },
   totp_secret: { type: DataTypes.STRING(255), allowNull: true },
   telegram_chat_id: { type: DataTypes.STRING(255), allowNull: true },
-  telegram_username: { type: DataTypes.STRING(255), allowNull: true }
+  telegram_username: { type: DataTypes.STRING(255), allowNull: true },
+  otp_telegram_chat_id: { type: DataTypes.STRING(255), allowNull: true },
+  otp_telegram_username: { type: DataTypes.STRING(255), allowNull: true }
 }, { tableName: 'users', createdAt: 'created_at', updatedAt: 'updated_at' });
 
 module.exports = User;

@@ -12,10 +12,7 @@ const authRoutes = require('./routes/auth.js');
 const roleRoutes = require('./routes/roles.js');
 const kutRoutes = require('./routes/kuts.js');
 const userRoutes = require('./routes/users.js');
-const messageRoutes = require('./routes/messages.js');
-const reportRoutes = require('./routes/reports.js');
-const reportCategoryRoutes = require('./routes/reportCategories.js');
-const publicContentRoutes = require('./routes/publicContents.js');
+
 const monkSurveysRoutes = require('./routes/monkSurveys.js');
 const provinceRoutes = require('./routes/provinces.js');
 const locationRoutes = require('./routes/locations');
@@ -32,7 +29,7 @@ const leaveRequestRoutes = require('./routes/leaveRequests.js');
 
 // Initialize Telegram Bots
 require('./services/telegramBot.js');
-require('./services/memberTelegramBot.js');
+require('./services/otpTelegramBot.js');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -109,10 +106,7 @@ const statisticsRoutes = require('./routes/statistics.js');
 app.use('/api/roles', roleRoutes);
 app.use('/api/kuts', kutRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/report-categories', reportCategoryRoutes);
-app.use('/api/public-contents', publicContentRoutes);
+
 const studentSurveysRoutes = require('./routes/studentSurveys.js');
 app.use('/api/monk-surveys', monkSurveysRoutes);
 app.use('/api/student-surveys', studentSurveysRoutes);

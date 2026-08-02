@@ -212,10 +212,22 @@ class AuthController {
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ success: false, message: 'Current password and new password are required' });
       }
-      await authService.updateMyPassword(req.user.id, currentPassword, newPassword);
+      const result = await authService.updateMyPassword(req.user.id, currentPassword, newPassword);
+      
+      if (result.refreshToken) {
+        res.cookie('refreshToken', result.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'Lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+      }
+
       res.json({
         success: true,
-        message: 'ប្តូរពាក្យសម្ងាត់ជោគជ័យ! (Password changed securely)'
+        message: 'ប្តូរពាក្យសម្ងាត់ជោគជ័យ! (Password changed securely)',
+        accessToken: result.accessToken,
+        user: result.user
       });
     } catch (error) {
       console.error('Update my password error:', error);
@@ -389,6 +401,23 @@ class AuthController {
       });
     }
   }
+  async generateTelegramLinkToken(req, res) {
+    try {
+      const otpTelegramBot = require('../services/otpTelegramBot');
+      if (otpTelegramBot && otpTelegramBot.generateLinkingToken) {
+        const token = otpTelegramBot.generateLinkingToken(req.user.id);
+        res.json({
+          success: true,
+          token
+        });
+      } else {
+        res.status(500).json({ success: false, message: 'OTP bot is not active' });
+      }
+    } catch (error) {
+      console.error('Generate telegram link token error:', error);
+      res.status(500).json({ success: false, message: 'Failed to generate token' });
+    }
+  }
 
   async unlinkTelegram(req, res) {
     try {
@@ -402,6 +431,21 @@ class AuthController {
       res.status(500).json({
         success: false,
         message: 'Failed to unlink Telegram account'
+      });
+    }
+  }
+  async unlinkOtpTelegram(req, res) {
+    try {
+      await authService.unlinkOtpTelegram(req.user.id);
+      res.json({
+        success: true,
+        message: 'OTP Telegram account unlinked successfully'
+      });
+    } catch (error) {
+      console.error('OTP Telegram unlink error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to unlink OTP Telegram account'
       });
     }
   }
