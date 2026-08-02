@@ -35,6 +35,7 @@ require('./services/telegramBot.js');
 require('./services/memberTelegramBot.js');
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = http.createServer(app);
 const path = require('path');
 
