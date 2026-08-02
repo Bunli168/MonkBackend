@@ -1,12 +1,13 @@
 const { Sequelize } = require('sequelize');
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'monk_db',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASS || 'Ant123',
+  process.env.DB_NAME || 'postgres',
+  process.env.DB_USER || 'postgres.vbxotzbkerxpgvfaxjyq',
+  process.env.DB_PASS || '',
   {
-    host: process.env.DB_HOST || 'localhost',
-    dialect: 'mysql',
+    host: process.env.DB_HOST || 'aws-0-ap-southeast-1.pooler.supabase.com',
+    port: process.env.DB_PORT || 6543,
+    dialect: process.env.DB_DIALECT || 'postgres',
     logging: false, // Set to console.log to see SQL queries
     pool: {
       max: 5,

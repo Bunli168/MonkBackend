@@ -212,10 +212,21 @@ class AuthController {
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ success: false, message: 'Current password and new password are required' });
       }
-      await authService.updateMyPassword(req.user.id, currentPassword, newPassword);
+      const result = await authService.updateMyPassword(req.user.id, currentPassword, newPassword);
+      
+      if (result.tokens?.refreshToken) {
+        res.cookie('refreshToken', result.tokens.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+      }
+
       res.json({
         success: true,
-        message: 'ប្តូរពាក្យសម្ងាត់ជោគជ័យ! (Password changed securely)'
+        message: 'ប្តូរពាក្យសម្ងាត់ជោគជ័យ! (Password changed securely)',
+        data: result
       });
     } catch (error) {
       console.error('Update my password error:', error);

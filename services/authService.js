@@ -235,7 +235,20 @@ const authService = {
     // Invalidate all other sessions/tokens so hacker B or stolen tokens are kicked out immediately!
     await RefreshToken.destroy({ where: { user_id: userId } });
 
-    return { success: true };
+    // Generate a new token pair for the current device so they stay logged in
+    const accessToken = generateAccessToken({ userId: user.id, email: user.email });
+    const refreshToken = generateRefreshToken({ userId: user.id });
+
+    await RefreshToken.create({
+      token: refreshToken,
+      user_id: user.id,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    });
+
+    return { 
+      success: true, 
+      tokens: { accessToken, refreshToken } 
+    };
   },
 
   async getProfile(userId) {

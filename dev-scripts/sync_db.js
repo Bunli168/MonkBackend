@@ -1,4 +1,4 @@
-const { sequelize } = require('./models');
+const { sequelize } = require('../models');
 (async () => {
   try {
     await sequelize.sync({ alter: true });

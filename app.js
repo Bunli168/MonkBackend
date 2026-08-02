@@ -97,10 +97,12 @@ app.get('/health', (req, res) => {
 });
 
 // Ensure the leave-request workflow status column supports the new approval stages
-sequelize.query("ALTER TABLE leave_requests MODIFY COLUMN status ENUM('pending','pending_mekudi','pending_superadmin','approved','rejected') NOT NULL DEFAULT 'pending_mekudi'")
-  .catch((err) => {
-    console.warn('Leave request status migration skipped:', err.message);
-  });
+if (sequelize.getDialect() === 'mysql') {
+  sequelize.query("ALTER TABLE leave_requests MODIFY COLUMN status ENUM('pending','pending_mekudi','pending_superadmin','approved','rejected') NOT NULL DEFAULT 'pending_mekudi'")
+    .catch((err) => {
+      console.warn('Leave request status migration skipped:', err.message);
+    });
+}
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -150,14 +152,16 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = config.port;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${config.nodeEnv}`);
-  console.log(`CORS origin: ${config.corsOrigin}`);
-});
+if (!process.env.VERCEL) {
+  const PORT = config.port || 3000;
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${config.nodeEnv}`);
+    console.log(`CORS origin: ${config.corsOrigin}`);
+  });
+}
 
-module.exports = { io };
+module.exports = app;
 // nodemon restart trigger
 // another trigger
 // another trigger 2
