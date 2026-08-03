@@ -37,15 +37,56 @@ exports.createRequest = async (req, res) => {
             image_url = `/uploads/leave-requests/${req.file.filename}`;
         }
 
+        const isAdmin = req.user.Role && ['Admin', 'Superadmin'].includes(req.user.Role.name);
+        const status = isAdmin ? 'approved' : 'pending';
+        const approved_by = isAdmin ? req.user.id : null;
+
         const leaveRequest = await LeaveRequest.create({
             user_id: req.user.id,
             retreat_event_id: activeYear ? activeYear.id : null,
             start_date,
             end_date,
             reason,
-            status: 'pending',
+            status,
+            approved_by,
             image_url
         });
+
+        if (status === 'approved') {
+            const startDateObj = new Date(start_date);
+            const endDateObj = new Date(end_date);
+            const profile = await UserProfile.findOne({ where: { user_id: req.user.id } });
+            let retreatId = activeYear ? activeYear.id : 1;
+
+            for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                let existingAttendance = await Attendance.findOne({
+                    where: { user_id: req.user.id, date: dateStr }
+                });
+
+                if (existingAttendance) {
+                    await existingAttendance.update({
+                        status: 'permission',
+                        notes: 'Approved Leave: ' + reason,
+                        retreat_event_id: existingAttendance.retreat_event_id || retreatId,
+                        seating_row_id: profile ? profile.seating_row_id : existingAttendance.seating_row_id,
+                        seat_number: profile ? profile.seat_number : existingAttendance.seat_number,
+                        kut_id: profile ? profile.kut_id : existingAttendance.kut_id
+                    });
+                } else {
+                    await Attendance.create({
+                        user_id: req.user.id,
+                        retreat_event_id: retreatId,
+                        date: dateStr,
+                        status: 'permission',
+                        notes: 'Approved Leave: ' + reason,
+                        seating_row_id: profile ? profile.seating_row_id : null,
+                        seat_number: profile ? profile.seat_number : null,
+                        kut_id: profile ? profile.kut_id : null
+                    });
+                }
+            }
+        }
 
         res.status(201).json({ message: 'Leave request submitted successfully', leaveRequest });
         
@@ -56,7 +97,7 @@ exports.createRequest = async (req, res) => {
                 user_id: req.user.id,
                 start_date,
                 end_date,
-                status: 'pending'
+                status
             });
         } catch (e) {
             console.error('Socket emit error:', e);
@@ -317,7 +358,7 @@ exports.getAllRequests = async (req, res) => {
         const includeUser = {
             model: User,
             attributes: ['id'],
-            include: [{ model: UserProfile, attributes: ['first_name_kh', 'last_name_kh', 'kut_id'] }]
+            include: [{ model: UserProfile, attributes: ['first_name_kh', 'last_name_kh', 'kut_id', 'avatar_url'] }]
         };
 
         const role = req.user?.Role?.name || req.user?.role || '';

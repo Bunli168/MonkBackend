@@ -1,6 +1,11 @@
 const { Attendance, User, Kut, UserProfile, SeatingRow, Role, Payment, FinePayment, LeaveRequest, RetreatEvent } = require('../models');
 const { emitToAdmins } = require('../config/socket');
 const { Op } = require('sequelize');
+const crypto = require('crypto');
+
+// In-memory store for active QR sessions
+// Key: seating_row_id (string/number), Value: { token, expiresAt, date }
+const activeQRSessions = new Map();
 
 const attendanceController = {
   async getAll(req, res) {
@@ -279,7 +284,7 @@ const attendanceController = {
           { model: Role, attributes: ['name'] },
           {
             model: UserProfile,
-            attributes: ['kut_id', 'seat_number', 'seating_row_id', 'first_name_kh', 'last_name_kh', 'first_name_en', 'last_name_en'],
+            attributes: ['kut_id', 'seat_number', 'seating_row_id', 'first_name_kh', 'last_name_kh', 'first_name_en', 'last_name_en', 'avatar_url'],
             include: [
               { model: Kut, attributes: ['id', 'name'] },
               { model: SeatingRow, attributes: ['id', 'row_num'] }
@@ -583,7 +588,7 @@ const attendanceController = {
         include: [
           {
             model: UserProfile,
-            attributes: ['kut_id', 'seating_row_id', 'seat_number', 'first_name_kh', 'last_name_kh', 'first_name_en', 'last_name_en', 'phone_number'],
+            attributes: ['kut_id', 'seating_row_id', 'seat_number', 'first_name_kh', 'last_name_kh', 'first_name_en', 'last_name_en', 'phone_number', 'avatar_url'],
             include: [
               { model: Kut, attributes: ['name'] },
               { model: SeatingRow, attributes: ['row_num'] }
@@ -698,7 +703,8 @@ const attendanceController = {
           leaveImages: leaveImages,
           fine: netFine,
           grossFine: grossFine,
-          totalPaid: totalPaid
+          totalPaid: totalPaid,
+          avatar_url: profile?.avatar_url || null
         };
       });
 
@@ -800,6 +806,145 @@ const attendanceController = {
       });
     } catch (error) {
       console.error('Get my summary error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  async toggleQRSession(req, res) {
+    try {
+      const { seating_row_id, date, action, duration_minutes } = req.body;
+      if (!seating_row_id || !date || !action) {
+        return res.status(400).json({ success: false, message: 'Missing parameters' });
+      }
+
+      if (action === 'start') {
+        const token = crypto.randomBytes(16).toString('hex');
+        const minutes = duration_minutes || 5;
+        const expiresAt = new Date(Date.now() + minutes * 60000);
+        
+        activeQRSessions.set(String(seating_row_id), { token, expiresAt, date });
+        return res.status(200).json({ success: true, message: 'QR Session started', data: { token, expiresAt, date, seating_row_id } });
+      } else if (action === 'stop') {
+        activeQRSessions.delete(String(seating_row_id));
+        return res.status(200).json({ success: true, message: 'QR Session stopped' });
+      } else {
+        return res.status(400).json({ success: false, message: 'Invalid action' });
+      }
+    } catch (error) {
+      console.error('Toggle QR session error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  async checkQRSession(req, res) {
+    try {
+      const { seating_row_id } = req.query;
+      if (!seating_row_id) return res.status(400).json({ success: false, message: 'Row ID required' });
+      
+      const session = activeQRSessions.get(String(seating_row_id));
+      if (!session) {
+        return res.status(200).json({ success: true, data: { active: false } });
+      }
+      
+      if (new Date() > session.expiresAt) {
+        activeQRSessions.delete(String(seating_row_id));
+        return res.status(200).json({ success: true, data: { active: false } });
+      }
+      
+      return res.status(200).json({ success: true, data: { active: true, ...session } });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  async scanSelfQR(req, res) {
+    try {
+      const { token, seating_row_id, date } = req.body;
+      const user_id = req.user.id;
+
+      if (!token || !seating_row_id || !date) {
+        return res.status(400).json({ success: false, message: 'Invalid QR Code data.' });
+      }
+
+      // Check if session is active
+      const session = activeQRSessions.get(String(seating_row_id));
+      if (!session || session.token !== token) {
+        return res.status(400).json({ success: false, message: 'This QR code is invalid or has expired.' });
+      }
+      if (new Date() > session.expiresAt) {
+        activeQRSessions.delete(String(seating_row_id));
+        return res.status(400).json({ success: false, message: 'This QR code has expired.' });
+      }
+      if (session.date !== date) {
+        return res.status(400).json({ success: false, message: 'This QR code is for a different date.' });
+      }
+
+      // Ensure monk exists
+      const userProfile = await UserProfile.findOne({ where: { user_id } });
+      if (!userProfile) return res.status(400).json({ success: false, message: 'User profile not found.' });
+
+      const fullUser = await User.findOne({ where: { id: user_id } });
+      let rowNum = '-';
+      if (userProfile.seating_row_id) {
+        const seatingRow = await SeatingRow.findOne({ where: { id: userProfile.seating_row_id } });
+        if (seatingRow) rowNum = seatingRow.row_num;
+      }
+      const responseData = {
+        name: fullUser ? (fullUser.english_name || fullUser.khmer_name) : 'User',
+        row: rowNum,
+        seat: userProfile.seat_number || '-'
+      };
+
+      // Check existing attendance or leave
+      const activeYear = await RetreatEvent.findOne({ where: { is_active: true } });
+      const activeYearId = activeYear ? activeYear.id : null;
+
+      const overlappingRequest = await LeaveRequest.findOne({
+        where: {
+          user_id,
+          status: { [Op.notIn]: ['rejected'] },
+          start_date: { [Op.lte]: date },
+          end_date: { [Op.gte]: date }
+        }
+      });
+      if (overlappingRequest) {
+        return res.status(400).json({ success: false, message: 'You have an approved leave for this date. No need to scan.' });
+      }
+
+      const existing = await Attendance.findOne({ where: { user_id, date } });
+      if (existing) {
+        if (existing.status === 'present') {
+          return res.status(200).json({ success: true, message: 'You are already marked as Present for today.', data: responseData });
+        }
+        await existing.update({ status: 'present', notes: 'Scanned QR' });
+      } else {
+        await Attendance.create({
+          user_id,
+          kut_id: userProfile.kut_id,
+          date,
+          status: 'present',
+          notes: 'Scanned QR',
+          seating_row_id: userProfile.seating_row_id,
+          seat_number: userProfile.seat_number,
+          fine_amount: 0,
+          retreat_event_id: activeYearId
+        });
+      }
+
+      // Trigger socket event to update taker's UI in real-time
+      const { getIO } = require('../config/socket');
+      try {
+        const io = getIO();
+        io.emit('attendance_updated', { date, seating_row_id: userProfile.seating_row_id, user_id, status: 'present' });
+      } catch (err) { }
+
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Successfully marked as Present!',
+        data: responseData
+      });
+    } catch (error) {
+      console.error('Scan Self QR Error:', error);
       res.status(500).json({ success: false, message: error.message });
     }
   }
