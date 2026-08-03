@@ -68,7 +68,7 @@ app.use('/api/', limiter);
 // Strict rate limiting for Auth routes to prevent brute-force
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per 15 minutes
+  max: 5000, // Limit each IP to 5000 requests per 15 minutes
   message: 'Too many authentication attempts, please try again after 15 minutes.'
 });
 app.use('/api/auth/login', authLimiter);

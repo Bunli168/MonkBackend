@@ -36,6 +36,12 @@ const authService = {
     if (!user.is_active) throw new Error('Account is inactive');
     if (!user.is_verified) throw new Error('Please verify your email first');
 
+    // Check if they are using the default password, if so, enforce change (except superadmin)
+    if (password === 'Neakavorn@123' && user.email !== 'superadmin@pagoda.kh') {
+      user.must_change_password = true;
+      await user.save();
+    }
+
     // Check if TOTP is enabled
     if (user.totp_enabled) {
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -45,7 +51,8 @@ const authService = {
 
       return { requireOtp: true, mfaType: 'totp', otpSessionToken: sessionToken };
     }
-    // Super Admin or Admin require OTP only if Telegram OTP is connected (or TOTP above is enabled)
+
+    // Super Admin or Admin require OTP only if Telegram is connected (or TOTP above is enabled)
     else if ((user.role_id === 1 || user.role_id === 2 || (user.Role && ['admin', 'super_admin'].includes(user.Role.name.toLowerCase()))) && user.otp_telegram_chat_id) {
       const otpCode = generateOtp();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -169,7 +176,7 @@ const authService = {
           sentViaTelegram = true;
         }
       } catch (err) {
-        console.error('Failed to resend OTP via Telegram Bot:', err.message);
+        console.error('Failed to resend OTP via Telegram:', err.message);
       }
     }
 

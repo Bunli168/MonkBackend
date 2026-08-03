@@ -59,6 +59,10 @@ const userController = {
         }
       }
 
+      if (req.query.isActive !== undefined && req.query.isActive !== '') {
+        where.is_active = req.query.isActive === 'true';
+      }
+
       const stats = await User.findAll({
         where,
         include: [{ model: UserProfile, where: Object.keys(userProfileWhere).length ? userProfileWhere : undefined, attributes: [] }],

@@ -85,6 +85,8 @@ const attendanceController = {
               existingAtt.notes = existingAtt.notes ? `${existingAtt.notes} (${leaveNote})` : leaveNote;
               if (existingAtt.dataValues) existingAtt.dataValues.notes = existingAtt.notes;
             }
+            existingAtt.image_url = leave.image_url;
+            if (existingAtt.dataValues) existingAtt.dataValues.image_url = leave.image_url;
           } else {
             if (status && status !== 'permission') continue;
 
@@ -100,6 +102,7 @@ const attendanceController = {
               seating_row_id: profile ? profile.seating_row_id : null,
               seat_number: profile ? profile.seat_number : null,
               createdAt: leave.updatedAt || leave.createdAt,
+              image_url: leave.image_url,
               User: leave.User
             };
             if (kut_id && String(virt.kut_id) !== String(kut_id)) continue;
@@ -604,7 +607,7 @@ const attendanceController = {
           },
           {
             model: LeaveRequest,
-            attributes: ['status', 'start_date', 'end_date'],
+            attributes: ['status', 'start_date', 'end_date', 'image_url'],
             where: {
               ...attendanceWhere,
               status: { [Op.in]: ['pending_mekudi', 'approved_mekudi', 'pending_superadmin', 'pending', 'approved'] }
@@ -638,8 +641,12 @@ const attendanceController = {
         }
         
         let pendingLeavesCount = 0;
+        const leaveImages = [];
         if (user.LeaveRequests && user.LeaveRequests.length > 0) {
           user.LeaveRequests.forEach(lr => {
+            if (lr.image_url) {
+              leaveImages.push(lr.image_url);
+            }
             if (['pending_mekudi', 'pending_superadmin', 'pending'].includes(lr.status)) {
               pendingLeavesCount++;
             } else if (lr.status === 'approved') {
@@ -688,6 +695,7 @@ const attendanceController = {
           absent: absentCount,
           permission: permissionCount,
           pendingLeaves: pendingLeavesCount,
+          leaveImages: leaveImages,
           fine: netFine,
           grossFine: grossFine,
           totalPaid: totalPaid
@@ -737,16 +745,10 @@ const attendanceController = {
 
       let absentCount = 0;
       let permissionCount = 0;
-      let totalFine = 0;
 
       attendances.forEach(att => {
         if (att.status === 'absent') absentCount++;
         if (att.status === 'permission') permissionCount++;
-
-        const fineValue = att.fine_amount;
-        if (fineValue !== undefined && fineValue !== null && fineValue !== '') {
-          totalFine += parseFloat(fineValue);
-        }
       });
 
       // Also fetch approved leave requests for this user to include any permissions not already recorded
@@ -773,12 +775,27 @@ const attendanceController = {
         }
       }
 
+      // Fine rule: 3 permissions = 1 absent, 3 absents = 5 dollars
+      const effectiveAbsents = absentCount + Math.floor(permissionCount / 3);
+      const grossFine = Math.floor(effectiveAbsents / 3) * 5;
+
+      // Fetch user payments
+      const { Payment } = require('../models');
+      const payments = await Payment.findAll({ where: { user_id: userId } });
+      let totalPaid = 0;
+      payments.forEach(pay => {
+        if (pay.amount_paid) totalPaid += parseFloat(pay.amount_paid);
+      });
+
+      let netFine = grossFine - totalPaid;
+      if (netFine < 0) netFine = 0;
+
       res.status(200).json({
         success: true,
         data: {
           absent: absentCount,
           permission: permissionCount,
-          fine: totalFine
+          fine: netFine
         }
       });
     } catch (error) {

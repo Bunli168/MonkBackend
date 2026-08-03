@@ -4,10 +4,11 @@ const { transitionLeaveRequest } = require('../utils/leaveRequestWorkflow');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 let bot = null;
+const linkingTokens = new Map(); // Store temporary tokens for linking accounts
 
 if (token) {
     bot = new TelegramBot(token, { polling: true });
-
+    
     bot.getMe().then((me) => {
         console.log(`✅ LEAVE REQUEST BOT INITIALIZED! Username: @${me.username} | Link: https://t.me/${me.username}`);
     }).catch(err => console.log('Could not fetch bot info:', err.message));
@@ -94,8 +95,32 @@ if (token) {
         const payload = match[1];
 
         if (payload) {
-            const linked = await handleAutoLink(chatId, payload, msg.from.username);
-            if (linked) return;
+            if (linkingTokens.has(payload)) {
+                // Link via token (Admin)
+                const linkData = linkingTokens.get(payload);
+                if (linkData.expiresAt > Date.now()) {
+                    const user = await User.findByPk(linkData.userId);
+                    if (user) {
+                        user.telegram_chat_id = chatId.toString();
+                        user.telegram_username = msg.from.username || null;
+                        await user.save();
+                        
+                        const profile = await UserProfile.findOne({ where: { user_id: user.id } });
+                        const nameStr = profile ? `${profile.first_name_kh} ${profile.last_name_kh}` : user.email;
+                        
+                        bot.sendMessage(chatId, `✅ *ភ្ជាប់គណនីជោគជ័យ! (Account Linked Successfully!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${user.email}\n\nអ្នកនឹងទទួលបានសារជូនដំណឹងនៅទីនេះដោយស្វ័យប្រវត្តិ។`, { parse_mode: 'Markdown' });
+                        linkingTokens.delete(payload);
+                        return;
+                    }
+                }
+                linkingTokens.delete(payload);
+                bot.sendMessage(chatId, `❌ *Token ផុតកំណត់ ឬមិនត្រឹមត្រូវ (Invalid or expired token)*\nសូមព្យាយាមម្ដងទៀត។`, { parse_mode: 'Markdown' });
+                return;
+            } else {
+                // Try phone or email
+                const linked = await handleAutoLink(chatId, payload, msg.from.username);
+                if (linked) return;
+            }
         }
 
         // Check if already linked
@@ -151,7 +176,7 @@ if (token) {
             });
 
             if (!adminUser || ![1, 2, 3, 4].includes(adminUser.role_id)) {
-                return bot.answerCallbackQuery(query.id, { text: 'Unauthorized. Only Admins can perform this action.', show_alert: true });
+                return bot.answerCallbackQuery(query.id, { text: 'Unauthorized. Only Admins can perform this action.', show_alert: true }).catch(() => {});
             }
 
             const [action, requestId] = data.split('_');
@@ -159,11 +184,16 @@ if (token) {
 
             const leaveRequest = await LeaveRequest.findByPk(requestId);
             if (!leaveRequest) {
-                return bot.answerCallbackQuery(query.id, { text: 'Leave request not found.', show_alert: true });
+                return bot.answerCallbackQuery(query.id, { text: 'Leave request not found.', show_alert: true }).catch(() => {});
             }
 
-            if (leaveRequest.status !== 'pending') {
-                return bot.answerCallbackQuery(query.id, { text: `This request is already ${leaveRequest.status}.`, show_alert: true });
+            if (leaveRequest.status === 'approved' || leaveRequest.status === 'rejected') {
+                // If the user clicks an old button, just remove it from the message to clean it up
+                bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                    chat_id: chatId,
+                    message_id: query.message.message_id
+                }).catch(() => {});
+                return bot.answerCallbackQuery(query.id, { text: `This request is already ${leaveRequest.status}.`, show_alert: true }).catch(() => {});
             }
 
             const actorRole = adminUser.Role?.name || (adminUser.role_id === 1 ? 'SuperAdmin' : 'Admin');
@@ -174,7 +204,7 @@ if (token) {
             });
 
             if (!workflow.allowed) {
-                return bot.answerCallbackQuery(query.id, { text: `Not allowed: ${workflow.message}`, show_alert: true });
+                return bot.answerCallbackQuery(query.id, { text: `Not allowed: ${workflow.message}`, show_alert: true }).catch(() => {});
             }
 
             leaveRequest.status = workflow.nextStatus;
@@ -260,7 +290,7 @@ if (token) {
                 }
             }
 
-            bot.answerCallbackQuery(query.id, { text: workflow.message });
+            bot.answerCallbackQuery(query.id, { text: workflow.message }).catch(() => {});
 
             // Update original message
             const adminProfile = await UserProfile.findOne({ where: { user_id: adminUser.id } });
@@ -271,17 +301,34 @@ if (token) {
             else if (workflow.nextStatus === 'rejected') actionText = '❌ Rejected';
             else if (workflow.nextStatus === 'pending_superadmin') actionText = '✅ Forwarded to Super Admin';
 
-            const updatedText = query.message.text + `\n\n_${actionText} by ${adminName}_`;
-
-            bot.editMessageText(updatedText, {
+            const isPhotoMessage = query.message.photo && query.message.photo.length > 0;
+            const currentText = isPhotoMessage ? (query.message.caption || '') : (query.message.text || '');
+            
+            // Always append using HTML formatting, since we don't have the original HTML tags anyway,
+            // we will just format the new part and assume Telegram will parse it.
+            // If currentText has Markdown characters, parse_mode HTML safely ignores them instead of failing.
+            const updatedText = currentText + `\n\n<i>${actionText} by ${adminName}</i>`;
+            
+            const options = {
                 chat_id: chatId,
                 message_id: query.message.message_id,
-                parse_mode: 'Markdown'
-            });
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: [] } // Explicitly remove buttons
+            };
+
+            if (isPhotoMessage) {
+                bot.editMessageCaption(updatedText, options).catch(err => {
+                    console.error('editMessageCaption error:', err.message);
+                });
+            } else {
+                bot.editMessageText(updatedText, options).catch(err => {
+                    console.error('editMessageText error:', err.message);
+                });
+            }
 
         } catch (error) {
             console.error('Callback query error:', error);
-            bot.answerCallbackQuery(query.id, { text: 'An error occurred.', show_alert: true });
+            bot.answerCallbackQuery(query.id, { text: 'An error occurred.', show_alert: true }).catch(() => {});
         }
     });
 
@@ -289,4 +336,24 @@ if (token) {
     console.log('TELEGRAM_BOT_TOKEN not found. Telegram bot is disabled.');
 }
 
-module.exports = bot;
+const generateLinkingToken = (userId) => {
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(16).toString('hex');
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+    
+    linkingTokens.set(token, {
+        userId,
+        expiresAt
+    });
+
+    // Cleanup old tokens periodically
+    for (const [key, value] of linkingTokens.entries()) {
+        if (value.expiresAt < Date.now()) {
+            linkingTokens.delete(key);
+        }
+    }
+
+    return token;
+};
+
+module.exports = bot ? Object.assign(bot, { generateLinkingToken }) : { generateLinkingToken };

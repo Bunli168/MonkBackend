@@ -34,4 +34,30 @@ const upload = multer({
   }
 });
 
-module.exports = upload;
+const leaveRequestStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = 'uploads/leave-requests';
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    const userId = req.user ? req.user.id : 'unknown';
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'leave-' + userId + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadLeaveRequest = multer({
+  storage: leaveRequestStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
+module.exports = {
+  upload,
+  uploadLeaveRequest
+};

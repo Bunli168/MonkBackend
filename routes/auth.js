@@ -1,7 +1,7 @@
 const express = require('express');
 const authController = require('../controllers/authController.js');
 const { authenticate } = require('../middleware/auth.js');
-const upload = require('../middleware/upload.js');
+const { upload } = require('../middleware/upload.js');
 const { 
   loginValidation, 
   otpValidation, 

@@ -11,6 +11,7 @@ router.get('/', authenticate, async (req, res) => {
     const surveys = await StudentSurvey.findAll({
       include: [{
         model: User,
+        where: { is_active: true },
         attributes: ['id', 'email'],
         include: [{ model: UserProfile, attributes: ['avatar_url', 'first_name_kh', 'last_name_kh', 'date_of_birth', 'phone_number'] }]
       }]

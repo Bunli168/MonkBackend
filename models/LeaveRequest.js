@@ -34,6 +34,10 @@ const LeaveRequest = sequelize.define('LeaveRequest', {
   approved_by: {
     type: DataTypes.INTEGER,
     allowNull: true,
+  },
+  image_url: {
+    type: DataTypes.STRING,
+    allowNull: true,
   }
 }, {
   tableName: 'leave_requests',

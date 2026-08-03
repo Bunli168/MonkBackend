@@ -403,19 +403,15 @@ class AuthController {
   }
   async generateTelegramLinkToken(req, res) {
     try {
-      const otpTelegramBot = require('../services/otpTelegramBot');
-      if (otpTelegramBot && otpTelegramBot.generateLinkingToken) {
-        const token = otpTelegramBot.generateLinkingToken(req.user.id);
-        res.json({
-          success: true,
-          token
-        });
+      const telegramBot = require('../services/telegramBot');
+      if (telegramBot && telegramBot.generateLinkingToken) {
+        const token = telegramBot.generateLinkingToken(req.user.id);
+        res.status(200).json({ success: true, token });
       } else {
-        res.status(500).json({ success: false, message: 'OTP bot is not active' });
+        res.status(500).json({ success: false, message: 'Telegram linking not configured properly' });
       }
     } catch (error) {
-      console.error('Generate telegram link token error:', error);
-      res.status(500).json({ success: false, message: 'Failed to generate token' });
+      res.status(500).json({ success: false, message: 'Error generating link token' });
     }
   }
 

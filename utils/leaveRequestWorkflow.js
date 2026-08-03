@@ -24,7 +24,7 @@ function transitionLeaveRequest({ currentStatus, requestedAction, actorRole }) {
   }
 
   if (currentStatus === 'pending' || currentStatus === 'pending_mekudi') {
-    if (normalizedRole === 'MEKUDI' || normalizedRole === 'ADMIN' || normalizedRole === 'ATTENDANCETAKER') {
+    if (normalizedRole === 'ADMIN' || normalizedRole === 'MEKUDI' || normalizedRole === 'ATTENDANCETAKER') {
       return {
         allowed: true,
         nextStatus: 'pending_superadmin',
@@ -34,9 +34,9 @@ function transitionLeaveRequest({ currentStatus, requestedAction, actorRole }) {
     
     if (normalizedRole === 'SUPERADMIN') {
       return {
-        allowed: true,
-        nextStatus: 'approved',
-        message: 'Request approved by Super Admin'
+        allowed: false,
+        nextStatus: currentStatus,
+        message: 'Only Admin or MEKUDI can forward this request to Super Admin'
       };
     }
 
