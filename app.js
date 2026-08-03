@@ -12,10 +12,7 @@ const authRoutes = require('./routes/auth.js');
 const roleRoutes = require('./routes/roles.js');
 const kutRoutes = require('./routes/kuts.js');
 const userRoutes = require('./routes/users.js');
-const messageRoutes = require('./routes/messages.js');
-const reportRoutes = require('./routes/reports.js');
-const reportCategoryRoutes = require('./routes/reportCategories.js');
-const publicContentRoutes = require('./routes/publicContents.js');
+
 const monkSurveysRoutes = require('./routes/monkSurveys.js');
 const provinceRoutes = require('./routes/provinces.js');
 const locationRoutes = require('./routes/locations');
@@ -32,7 +29,7 @@ const leaveRequestRoutes = require('./routes/leaveRequests.js');
 
 // Initialize Telegram Bots
 require('./services/telegramBot.js');
-require('./services/memberTelegramBot.js');
+require('./services/otpTelegramBot.js');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -65,7 +62,7 @@ app.use('/api/', limiter);
 // Strict rate limiting for Auth routes to prevent brute-force
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per 15 minutes
+  max: 5000, // Limit each IP to 5000 requests per 15 minutes
   message: 'Too many authentication attempts, please try again after 15 minutes.'
 });
 app.use('/api/auth/login', authLimiter);
@@ -105,10 +102,7 @@ const statisticsRoutes = require('./routes/statistics.js');
 app.use('/api/roles', roleRoutes);
 app.use('/api/kuts', kutRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/report-categories', reportCategoryRoutes);
-app.use('/api/public-contents', publicContentRoutes);
+
 const studentSurveysRoutes = require('./routes/studentSurveys.js');
 app.use('/api/monk-surveys', monkSurveysRoutes);
 app.use('/api/student-surveys', studentSurveysRoutes);

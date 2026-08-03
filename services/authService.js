@@ -36,6 +36,12 @@ const authService = {
     if (!user.is_active) throw new Error('Account is inactive');
     if (!user.is_verified) throw new Error('Please verify your email first');
 
+    // Check if they are using the default password, if so, enforce change (except superadmin)
+    if (password === 'Neakavorn@123' && user.email !== 'superadmin@pagoda.kh') {
+      user.must_change_password = true;
+      await user.save();
+    }
+
     // Check if TOTP is enabled
     if (user.totp_enabled) {
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -45,8 +51,9 @@ const authService = {
 
       return { requireOtp: true, mfaType: 'totp', otpSessionToken: sessionToken };
     }
+
     // Super Admin or Admin require OTP only if Telegram is connected (or TOTP above is enabled)
-    else if ((user.role_id === 1 || user.role_id === 2 || (user.Role && ['admin', 'super_admin'].includes(user.Role.name.toLowerCase()))) && user.telegram_chat_id) {
+    else if ((user.role_id === 1 || user.role_id === 2 || (user.Role && ['admin', 'super_admin'].includes(user.Role.name.toLowerCase()))) && user.otp_telegram_chat_id) {
       const otpCode = generateOtp();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
       const sessionToken = uuidv4();
@@ -54,12 +61,12 @@ const authService = {
       await OtpSession.create({ user_id: user.id, session_token: sessionToken, otp_code: otpCode, expires_at: expiresAt });
 
       let sentViaTelegram = false;
-      if (user.telegram_chat_id) {
+      if (user.otp_telegram_chat_id) {
         try {
-          const telegramBot = require('./telegramBot') || require('./memberTelegramBot');
-          if (telegramBot && telegramBot.sendMessage) {
-            const notifyText = `🔐 *លេខកូដចូលប្រព័ន្ធ (Login Security OTP)*\n\nជម្រាបសួរ Admin,\nកូដសម្រាប់ Login ចូលប្រព័ន្ធគឺ៖ *${otpCode}*\n\n⏱ _កូដនេះមានសុពលភាព ៥ នាទី។ សូមកុំប្រាប់កូដនេះទៅកាន់នរណាម្នាក់!_`;
-            await telegramBot.sendMessage(user.telegram_chat_id, notifyText, { parse_mode: 'Markdown' });
+          const otpTelegramBot = require('./otpTelegramBot');
+          if (otpTelegramBot && otpTelegramBot.sendMessage) {
+            const notifyText = `🔐 *លេខកូដសម្ងាត់ (OTP)*\n\nសូមប្រើប្រាស់លេខកូដនេះដើម្បីចូលគណនីរបស់អ្នក៖\n\n\t\t\t\t\t\t\t\t\t*${otpCode}*\n\n_កូដនេះមានសុពលភាពត្រឹមតែ 5 នាទីប៉ុណ្ណោះ។_`;
+            await otpTelegramBot.sendMessage(user.otp_telegram_chat_id, notifyText, { parse_mode: 'Markdown' });
             sentViaTelegram = true;
           }
         } catch (err) {
@@ -160,16 +167,16 @@ const authService = {
     await OtpSession.create({ user_id: user.id, session_token: newSessionToken, otp_code: newOtpCode, expires_at: expiresAt });
 
     let sentViaTelegram = false;
-    if (user.telegram_chat_id) {
+    if (user.otp_telegram_chat_id) {
       try {
-        const telegramBot = require('./telegramBot') || require('./memberTelegramBot');
-        if (telegramBot && telegramBot.sendMessage) {
-          const notifyText = `🔐 *លេខកូដចូលប្រព័ន្ធថ្មី (Resent Security OTP)*\n\nជម្រាបសួរ Admin,\nកូដថ្មីសម្រាប់ Login ចូលប្រព័ន្ធគឺ៖ *${newOtpCode}*\n\n⏱ _កូដនេះមានសុពលភាព ៥ នាទី។_`;
-          await telegramBot.sendMessage(user.telegram_chat_id, notifyText, { parse_mode: 'Markdown' });
+        const otpTelegramBot = require('./otpTelegramBot');
+        if (otpTelegramBot && otpTelegramBot.sendMessage) {
+          const notifyText = `🔐 *លេខកូដសម្ងាត់ថ្មី (New OTP)*\n\nសូមប្រើប្រាស់លេខកូដនេះដើម្បីចូលគណនីរបស់អ្នក៖\n\n\t\t\t\t\t\t\t\t\t*${newOtpCode}*\n\n_កូដនេះមានសុពលភាពត្រឹមតែ 5 នាទីប៉ុណ្ណោះ។_`;
+          await otpTelegramBot.sendMessage(user.otp_telegram_chat_id, notifyText, { parse_mode: 'Markdown' });
           sentViaTelegram = true;
         }
       } catch (err) {
-        console.error('Failed to resend OTP via Telegram Bot:', err.message);
+        console.error('Failed to resend OTP via Telegram:', err.message);
       }
     }
 
@@ -235,19 +242,21 @@ const authService = {
     // Invalidate all other sessions/tokens so hacker B or stolen tokens are kicked out immediately!
     await RefreshToken.destroy({ where: { user_id: userId } });
 
-    // Generate a new token pair for the current device so they stay logged in
-    const accessToken = generateAccessToken({ userId: user.id, email: user.email });
-    const refreshToken = generateRefreshToken({ userId: user.id });
-
+    // Generate new tokens for the current session to keep them logged in
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user.id);
+    
     await RefreshToken.create({
-      token: refreshToken,
+      token: newRefreshToken,
       user_id: user.id,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
 
     return { 
       success: true, 
-      tokens: { accessToken, refreshToken } 
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: formatUserData(user)
     };
   },
 
@@ -461,6 +470,13 @@ const authService = {
     if (!user) throw new Error('User not found');
     await user.update({ telegram_chat_id: null, telegram_username: null });
     return { success: true };
+  },
+
+  async unlinkOtpTelegram(userId) {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error('User not found');
+    await user.update({ otp_telegram_chat_id: null, otp_telegram_username: null });
+    return true;
   },
 
   async verifyEmail(token) {

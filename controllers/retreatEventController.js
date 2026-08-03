@@ -10,10 +10,20 @@ const retreatEventController = {
       if (!activeEvent) {
         return res.status(200).json({ success: true, data: null, is_open: false });
       }
+
+      let isOpen = !activeEvent.is_closed;
+      if (isOpen && activeEvent.end_date) {
+        const end = new Date(activeEvent.end_date);
+        end.setHours(23, 59, 59, 999);
+        if (new Date() > end) {
+          isOpen = false;
+        }
+      }
+
       res.status(200).json({ 
         success: true, 
         data: activeEvent,
-        is_open: !activeEvent.is_closed 
+        is_open: isOpen 
       });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });

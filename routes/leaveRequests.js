@@ -3,15 +3,16 @@ const router = express.Router();
 const leaveRequestController = require('../controllers/leaveRequestController');
 const { authenticate, authorize } = require('../middleware/auth');
 const { leaveRequestValidation } = require('../middleware/validate');
+const { uploadLeaveRequest } = require('../middleware/upload');
 
 // Monks create a leave request
-router.post('/', authenticate, leaveRequestValidation, leaveRequestController.createRequest);
+router.post('/', authenticate, uploadLeaveRequest.single('image'), leaveRequestValidation, leaveRequestController.createRequest);
 
 // Monks get their own requests
 router.get('/my', authenticate, leaveRequestController.getMyRequests);
 
 // Monks update their own requests
-router.put('/:id', authenticate, leaveRequestValidation, leaveRequestController.updateRequest);
+router.put('/:id', authenticate, uploadLeaveRequest.single('image'), leaveRequestValidation, leaveRequestController.updateRequest);
 
 // Monks delete their own requests
 router.delete('/:id', authenticate, leaveRequestController.deleteRequest);

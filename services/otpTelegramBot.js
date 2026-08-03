@@ -1,17 +1,25 @@
 const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api');
 const { User, UserProfile, Role } = require('../models');
 
-const token = process.env.TELEGRAM_MEMBER_BOT_TOKEN;
+const token = process.env.TELEGRAM_OTP_BOT_TOKEN;
 let bot = null;
+const linkingTokens = new Map();
 
 if (token) {
     bot = new TelegramBot(token, { polling: true });
 
-    bot.getMe().then((me) => {
-        console.log(`✅ NEW MEMBER BOT INITIALIZED! Username: @${me.username} | Link: https://t.me/${me.username}`);
-    }).catch(err => console.log('Could not fetch bot info:', err.message));
+    bot.generateLinkingToken = function(userId) {
+        const tk = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+        linkingTokens.set(tk, userId);
+        setTimeout(() => linkingTokens.delete(tk), 5 * 60 * 1000);
+        return tk;
+    };
 
-    console.log('New Member Telegram bot initialized and polling...');
+    bot.getMe().then((me) => {
+        console.log(`✅ NEW OTP BOT INITIALIZED! Username: @${me.username} | Link: https://t.me/${me.username}`);
+    }).catch(err => console.log('Could not fetch OTP bot info:', err.message));
+
+    console.log('OTP Telegram bot initialized and polling...');
 
     async function handleAutoLink(chatId, queryStr, username) {
         try {
@@ -43,8 +51,8 @@ if (token) {
                 return false;
             }
 
-            user.telegram_chat_id = chatId.toString();
-            user.telegram_username = username || null;
+            user.otp_telegram_chat_id = chatId.toString();
+            user.otp_telegram_username = username || null;
             await user.save();
 
             if (!userProfile) {
@@ -52,13 +60,13 @@ if (token) {
             }
 
             const nameStr = userProfile ? `${userProfile.first_name_kh} ${userProfile.last_name_kh}` : user.email;
-            bot.sendMessage(chatId, `✅ *ភ្ជាប់គណនីជោគជ័យ! (Account Linked Successfully!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${user.email}\n\nចាប់ពីពេលនេះតទៅ លោកអ្នកនឹងទទួលបានសារ Alert រាល់ពេលមានសមាជិកថ្មីចុះឈ្មោះ! 🎉`, { 
+            bot.sendMessage(chatId, `✅ *ភ្ជាប់គណនី OTP ជោគជ័យ! (OTP Account Linked Successfully!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${user.email}\n\nចាប់ពីពេលនេះតទៅ លោកអ្នកនឹងទទួលបានកូដ OTP នៅទីនេះ! 🎉`, { 
                 parse_mode: 'Markdown',
                 reply_markup: { remove_keyboard: true }
             });
             return true;
         } catch (error) {
-            console.error('Error in handleAutoLink:', error);
+            console.error('Error in handleAutoLink OTP bot:', error);
             return false;
         }
     }
@@ -67,55 +75,67 @@ if (token) {
         if (msg.contact && msg.contact.phone_number) {
             const linked = await handleAutoLink(msg.chat.id, msg.contact.phone_number, msg.from.username);
             if (!linked) {
-                bot.sendMessage(msg.chat.id, `❌ *រកមិនឃើញគណនីក្នុងប្រព័ន្ធ ឬគ្មានសិទ្ធិជា Admin*\nសូមត្រួតពិនិត្យលេខទូរស័ព្ទក្នុង Profile របស់អ្នក ឬទាក់ទង Super Admin។`, { parse_mode: 'Markdown' });
+                bot.sendMessage(msg.chat.id, `❌ *រកមិនឃើញគណនីក្នុងប្រព័ន្ធ ឬគ្មានសិទ្ធិជា Admin*\nសូមត្រួតពិនិត្យលេខទូរស័ព្ទក្នុង Profile របស់អ្នក។`, { parse_mode: 'Markdown' });
             }
             return;
         }
 
         if (msg.text && !msg.text.startsWith('/')) {
-            const text = msg.text.trim();
-            if (/^(\+?855|0)\d{7,9}$/.test(text) || /\S+@\S+\.\S+/.test(text)) {
-                const linked = await handleAutoLink(msg.chat.id, text, msg.from.username);
-                if (!linked) {
-                    bot.sendMessage(msg.chat.id, `❌ *រកមិនឃើញគណនី ឬគ្មានសិទ្ធិជា Admin សម្រាប់ "${text}" ទេ*\nសូមត្រួតពិនិត្យលេខទូរស័ព្ទ ឬអ៊ីមែលរបស់អ្នកឡើងវិញ។`, { parse_mode: 'Markdown' });
-                }
-            }
+            // Normal texts are ignored to prevent hijacking by sending someone else's phone number
         }
     });
 
     bot.on('polling_error', (error) => {
-        console.log('BOT POLLING ERROR:', error);
+        console.log('OTP BOT POLLING ERROR:', error);
     });
 
-    // /start command with auto detection and 1-click contact button
     bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         const chatId = msg.chat.id;
         const payload = match[1];
 
         if (payload) {
-            const linked = await handleAutoLink(chatId, payload, msg.from.username);
-            if (linked) return;
+            if (linkingTokens.has(payload)) {
+                const userId = linkingTokens.get(payload);
+                linkingTokens.delete(payload);
+                
+                let user = await User.findByPk(userId);
+                if (user) {
+                    user.otp_telegram_chat_id = chatId.toString();
+                    user.otp_telegram_username = msg.from.username || null;
+                    await user.save();
+                    
+                    const userProfile = await UserProfile.findOne({ where: { user_id: user.id } });
+                    const nameStr = userProfile ? `${userProfile.first_name_kh} ${userProfile.last_name_kh}` : user.email;
+                    return bot.sendMessage(chatId, `✅ *ភ្ជាប់គណនី OTP ជោគជ័យ! (OTP Account Linked Successfully!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${user.email}\n\nចាប់ពីពេលនេះតទៅ លោកអ្នកនឹងទទួលបានកូដ OTP នៅទីនេះ! 🎉`, { 
+                        parse_mode: 'Markdown',
+                        reply_markup: { remove_keyboard: true }
+                    });
+                }
+            } else {
+                const linked = await handleAutoLink(chatId, payload, msg.from.username);
+                if (linked) return;
+            }
         }
 
         // Check if already linked
-        const existingUser = await User.findOne({ where: { telegram_chat_id: chatId.toString() }, include: [Role] });
+        const existingUser = await User.findOne({ where: { otp_telegram_chat_id: chatId.toString() }, include: [Role] });
         if (existingUser) {
             const roleName = existingUser.Role ? existingUser.Role.name.toLowerCase() : '';
             const isAdminRole = existingUser.role_id === 1 || existingUser.role_id === 2 || ['admin', 'super_admin'].includes(roleName);
             if (!isAdminRole) {
-                existingUser.telegram_chat_id = null;
-                existingUser.telegram_username = null;
+                existingUser.otp_telegram_chat_id = null;
+                existingUser.otp_telegram_username = null;
                 await existingUser.save();
                 return bot.sendMessage(chatId, `⛔ *សិទ្ធិមិនគ្រប់គ្រាន់ (Access Denied)*\n\nសូមអភ័យទោស! Bot នេះត្រូវបានកំណត់សម្រាប់តែ **Admin** និង **Super Admin** ប៉ុណ្ណោះ។ គណនីរបស់អ្នកត្រូវបានផ្តាច់។`, { parse_mode: 'Markdown' });
             }
             const userProfile = await UserProfile.findOne({ where: { user_id: existingUser.id } });
             const nameStr = userProfile ? `${userProfile.first_name_kh} ${userProfile.last_name_kh}` : existingUser.email;
-            return bot.sendMessage(chatId, `✅ *គណនីរបស់អ្នកត្រូវបានភ្ជាប់រួចរាល់ហើយ! (Welcome Back!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${existingUser.email}\n\nលោកអ្នកនឹងទទួលបានសារ Alert រាល់ពេលមានសមាជិកថ្មីចុះឈ្មោះ! 🎉`, { parse_mode: 'Markdown' });
+            return bot.sendMessage(chatId, `✅ *គណនី OTP របស់អ្នកត្រូវបានភ្ជាប់រួចរាល់ហើយ! (Welcome Back!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${existingUser.email}\n\nលោកអ្នកនឹងទទួលបានកូដ OTP នៅទីនេះ! 🎉`, { parse_mode: 'Markdown' });
         }
 
         bot.sendMessage(chatId, 
-            `🎉 *សូមស្វាគមន៍មកកាន់ប្រព័ន្ធជូនដំណឹងសមាជិកថ្មី (New Member Alert Bot)*\n\n` +
-            `ដើម្បីភ្ជាប់គណនី សូមចុចប៊ូតុង **"📱 ចុចទីនេះដើម្បីភ្ជាប់គណនីស្វ័យប្រវត្តិ"** នៅខាងក្រោម ឬវាយបញ្ចូល **លេខទូរស័ព្ទ** ឬ **អ៊ីមែល** របស់អ្នកដោយផ្ទាល់នៅទីនេះ!`, 
+            `🔒 *សូមស្វាគមន៍មកកាន់ប្រព័ន្ធសុវត្ថិភាព OTP (OTP Security Bot)*\n\n` +
+            `ដើម្បីភ្ជាប់គណនីសម្រាប់ទទួលកូដ OTP ពេល Login សូមចុចប៊ូតុង **"📱 ចុចទីនេះដើម្បីភ្ជាប់គណនីស្វ័យប្រវត្តិ"** នៅខាងក្រោម ឬវាយបញ្ចូល **លេខទូរស័ព្ទ** ឬ **អ៊ីមែល** របស់អ្នកដោយផ្ទាល់នៅទីនេះ!`, 
             { 
                 parse_mode: 'Markdown',
                 reply_markup: {
@@ -129,7 +149,6 @@ if (token) {
         );
     });
 
-    // Link command fallback
     bot.onText(/\/link (.+)/, async (msg, match) => {
         const linked = await handleAutoLink(msg.chat.id, match[1], msg.from.username);
         if (!linked) {
@@ -138,7 +157,7 @@ if (token) {
     });
 
 } else {
-    console.log('TELEGRAM_MEMBER_BOT_TOKEN not found. New Member Telegram bot is disabled.');
+    console.log('TELEGRAM_OTP_BOT_TOKEN not found. OTP Telegram bot is disabled.');
 }
 
 module.exports = bot;

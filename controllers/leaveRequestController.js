@@ -32,14 +32,61 @@ exports.createRequest = async (req, res) => {
 
         const activeYear = await RetreatEvent.findOne({ where: { is_active: true } });
 
+        let image_url = null;
+        if (req.file) {
+            image_url = `/uploads/leave-requests/${req.file.filename}`;
+        }
+
+        const isAdmin = req.user.Role && ['Admin', 'Superadmin'].includes(req.user.Role.name);
+        const status = isAdmin ? 'approved' : 'pending';
+        const approved_by = isAdmin ? req.user.id : null;
+
         const leaveRequest = await LeaveRequest.create({
             user_id: req.user.id,
             retreat_event_id: activeYear ? activeYear.id : null,
             start_date,
             end_date,
             reason,
-            status: 'pending'
+            status,
+            approved_by,
+            image_url
         });
+
+        if (status === 'approved') {
+            const startDateObj = new Date(start_date);
+            const endDateObj = new Date(end_date);
+            const profile = await UserProfile.findOne({ where: { user_id: req.user.id } });
+            let retreatId = activeYear ? activeYear.id : 1;
+
+            for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
+                const dateStr = d.toISOString().split('T')[0];
+                let existingAttendance = await Attendance.findOne({
+                    where: { user_id: req.user.id, date: dateStr }
+                });
+
+                if (existingAttendance) {
+                    await existingAttendance.update({
+                        status: 'permission',
+                        notes: 'Approved Leave: ' + reason,
+                        retreat_event_id: existingAttendance.retreat_event_id || retreatId,
+                        seating_row_id: profile ? profile.seating_row_id : existingAttendance.seating_row_id,
+                        seat_number: profile ? profile.seat_number : existingAttendance.seat_number,
+                        kut_id: profile ? profile.kut_id : existingAttendance.kut_id
+                    });
+                } else {
+                    await Attendance.create({
+                        user_id: req.user.id,
+                        retreat_event_id: retreatId,
+                        date: dateStr,
+                        status: 'permission',
+                        notes: 'Approved Leave: ' + reason,
+                        seating_row_id: profile ? profile.seating_row_id : null,
+                        seat_number: profile ? profile.seat_number : null,
+                        kut_id: profile ? profile.kut_id : null
+                    });
+                }
+            }
+        }
 
         res.status(201).json({ message: 'Leave request submitted successfully', leaveRequest });
         
@@ -50,7 +97,7 @@ exports.createRequest = async (req, res) => {
                 user_id: req.user.id,
                 start_date,
                 end_date,
-                status: 'pending'
+                status
             });
         } catch (e) {
             console.error('Socket emit error:', e);
@@ -108,22 +155,33 @@ exports.createRequest = async (req, res) => {
                 }
 
                 if (targetAdmins.length === 0) {
-                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify available Admins/Takers/Leaders
+                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify available Admins/Takers
                     const fallbackAdmins = await User.findAll({
                         where: {
-                            role_id: { [Op.in]: [2, 3, 4] },
+                            role_id: { [Op.in]: [2, 5] },
                             telegram_chat_id: { [Op.not]: null }
                         }
                     });
                     targetAdmins.push(...fallbackAdmins);
                 }
 
+                // Ensure Super Admins never receive the initial creation notification directly
+                targetAdmins = targetAdmins.filter(a => a.role_id !== 1);
+
                 if (targetAdmins.length > 0) {
-                    const message = `🔔 *New Leave Request*\n\n*Monk:* ${monkName}\n*Kuti:* ${kutIdStr}\n*Mekudi:* ${mekudiNameStr}\n*From:* ${diffDays} day(s)\n*Reason:* ${reason}`;
+                    const message = `🔔 <b>New Leave Request</b>\n\n<b>Monk:</b> ${monkName}\n<b>Kuti:</b> ${kutIdStr}\n<b>Mekudi:</b> ${mekudiNameStr}\n<b>From:</b> ${diffDays} day(s)\n<b>Reason:</b> ${reason}`;
                     
+                    const fs = require('fs');
+                    const path = require('path');
+                    let photoPath = null;
+                    if (leaveRequest.image_url) {
+                        photoPath = path.join(__dirname, '..', leaveRequest.image_url);
+                        if (!fs.existsSync(photoPath)) photoPath = null;
+                    }
+
                     for (const admin of targetAdmins) {
-                        telegramBot.sendMessage(admin.telegram_chat_id, message, { 
-                            parse_mode: 'Markdown',
+                        const options = {
+                            parse_mode: 'HTML',
                             reply_markup: {
                                 inline_keyboard: [
                                     [
@@ -132,7 +190,13 @@ exports.createRequest = async (req, res) => {
                                     ]
                                 ]
                             }
-                        }).catch(err => console.error('Telegram send error:', err));
+                        };
+                        
+                        if (photoPath) {
+                            telegramBot.sendPhoto(admin.telegram_chat_id, photoPath, { ...options, caption: message }).catch(err => console.error('Telegram sendPhoto error:', err.message));
+                        } else {
+                            telegramBot.sendMessage(admin.telegram_chat_id, message, options).catch(err => console.error('Telegram send error:', err.message));
+                        }
                     }
                 }
             }
@@ -210,7 +274,12 @@ exports.updateRequest = async (req, res) => {
             return res.status(400).json({ message: 'You already have a leave request during this period.' });
         }
 
-        await leaveRequest.update({ start_date, end_date, reason });
+        let image_url = leaveRequest.image_url;
+        if (req.file) {
+            image_url = `/uploads/leave-requests/${req.file.filename}`;
+        }
+
+        await leaveRequest.update({ start_date, end_date, reason, image_url });
 
         res.json({ message: 'Leave request updated successfully', leaveRequest });
     } catch (error) {
@@ -289,7 +358,7 @@ exports.getAllRequests = async (req, res) => {
         const includeUser = {
             model: User,
             attributes: ['id'],
-            include: [{ model: UserProfile, attributes: ['first_name_kh', 'last_name_kh', 'kut_id'] }]
+            include: [{ model: UserProfile, attributes: ['first_name_kh', 'last_name_kh', 'kut_id', 'avatar_url'] }]
         };
 
         const role = req.user?.Role?.name || req.user?.role || '';
@@ -434,8 +503,21 @@ exports.updateStatus = async (req, res) => {
                     const eDate = new Date(leaveRequest.end_date);
                     const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
 
-                    const message = `${statusEmoji} *Leave Request Update*\n\nYour leave request for *${diffDays} day(s)* is now:\n\n*${statusText}*`;
-                    telegramBot.sendMessage(monkUser.telegram_chat_id, message, { parse_mode: 'Markdown' }).catch(err => console.error('Telegram send error:', err));
+                    const message = `${statusEmoji} <b>Leave Request Update</b>\n\nYour leave request for <b>${diffDays} day(s)</b> is now:\n\n<b>${statusText}</b>`;
+                    
+                    const fs = require('fs');
+                    const path = require('path');
+                    let photoPath = null;
+                    if (leaveRequest.image_url) {
+                        photoPath = path.join(__dirname, '..', leaveRequest.image_url);
+                        if (!fs.existsSync(photoPath)) photoPath = null;
+                    }
+
+                    if (photoPath) {
+                        telegramBot.sendPhoto(monkUser.telegram_chat_id, photoPath, { caption: message, parse_mode: 'HTML' }).catch(err => console.error('Telegram sendPhoto error to Monk:', err.message));
+                    } else {
+                        telegramBot.sendMessage(monkUser.telegram_chat_id, message, { parse_mode: 'HTML' }).catch(err => console.error('Telegram send error to Monk:', err.message));
+                    }
                 }
 
                 // Notify Super Admin if forwarded
@@ -466,10 +548,19 @@ exports.updateStatus = async (req, res) => {
                     const eDate = new Date(leaveRequest.end_date);
                     const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
 
+                    const fs = require('fs');
+                    const path = require('path');
+                    let photoPath = null;
+                    if (leaveRequest.image_url) {
+                        photoPath = path.join(__dirname, '..', leaveRequest.image_url);
+                        if (!fs.existsSync(photoPath)) photoPath = null;
+                    }
+
                     for (const sa of superAdmins) {
-                        const message = `🔔 *Leave Request Forwarded*\n\n*Monk:* ${monkNameStr}\n*Kuti:* ${kutIdStr}\n*Forwarded By:* ${mekudiNameStr}\n*From:* ${diffDays} day(s)\n*Reason:* ${leaveRequest.reason}`;
-                        telegramBot.sendMessage(sa.telegram_chat_id, message, {
-                            parse_mode: 'Markdown',
+                        const message = `🔔 <b>Leave Request Forwarded</b>\n\n<b>Monk:</b> ${monkNameStr}\n<b>Kuti:</b> ${kutIdStr}\n<b>Forwarded By:</b> ${mekudiNameStr}\n<b>From:</b> ${diffDays} day(s)\n<b>Reason:</b> ${leaveRequest.reason}`;
+                        
+                        const options = {
+                            parse_mode: 'HTML',
                             reply_markup: {
                                 inline_keyboard: [
                                     [
@@ -478,7 +569,17 @@ exports.updateStatus = async (req, res) => {
                                     ]
                                 ]
                             }
-                        }).catch(() => {});
+                        };
+                        
+                        if (photoPath) {
+                            telegramBot.sendPhoto(sa.telegram_chat_id, photoPath, { ...options, caption: message }).catch((err) => {
+                                console.error('Telegram sendPhoto error to SuperAdmin:', err.message);
+                            });
+                        } else {
+                            telegramBot.sendMessage(sa.telegram_chat_id, message, options).catch((err) => {
+                                console.error('Telegram send error to SuperAdmin:', err.message);
+                            });
+                        }
                     }
                 }
             }
