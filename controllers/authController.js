@@ -415,6 +415,20 @@ class AuthController {
     }
   }
 
+  async generateOtpTelegramLinkToken(req, res) {
+    try {
+      const otpTelegramBot = require('../services/otpTelegramBot');
+      if (otpTelegramBot && otpTelegramBot.generateLinkingToken) {
+        const token = otpTelegramBot.generateLinkingToken(req.user.id);
+        res.status(200).json({ success: true, token });
+      } else {
+        res.status(500).json({ success: false, message: 'OTP Telegram linking not configured properly' });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Error generating OTP link token' });
+    }
+  }
+
   async unlinkTelegram(req, res) {
     try {
       await authService.unlinkTelegram(req.user.id);

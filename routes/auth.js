@@ -30,6 +30,7 @@ router.post('/totp/setup', authenticate, authController.setupTotp);
 router.post('/totp/verify-setup', authenticate, totpSetupValidation, authController.verifyTotpSetup);
 router.post('/totp/disable', authenticate, totpValidation, authController.disableTotp);
 router.get('/telegram-link-token', authenticate, authController.generateTelegramLinkToken);
+router.get('/otp-telegram-link-token', authenticate, authController.generateOtpTelegramLinkToken);
 router.post('/unlink-telegram', authenticate, authController.unlinkTelegram);
 router.post('/unlink-otp-telegram', authenticate, authController.unlinkOtpTelegram);
 router.post('/forgot-password', forgotPasswordValidation, authController.forgotPassword);

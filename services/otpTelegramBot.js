@@ -93,7 +93,7 @@ if (token) {
         const chatId = msg.chat.id;
         const payload = match[1];
 
-        if (payload) {
+        if (payload) { console.log("OTP BOT RECEIVED PAYLOAD:", payload, "EXISTS IN MAP:", linkingTokens.has(payload));
             if (linkingTokens.has(payload)) {
                 const userId = linkingTokens.get(payload);
                 linkingTokens.delete(payload);
