@@ -1,6 +1,12 @@
-require('pg'); // Keep for good measure
-const pg = require('pg');
 const { Sequelize } = require('sequelize');
+const dialect = process.env.DB_DIALECT || 'postgres';
+
+let dialectModule;
+if (dialect === 'postgres') {
+  dialectModule = require('pg');
+} else if (dialect === 'mysql') {
+  dialectModule = require('mysql2');
+}
 
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'postgres',
@@ -9,8 +15,8 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST || 'aws-0-ap-southeast-1.pooler.supabase.com',
     port: process.env.DB_PORT || 6543,
-    dialect: process.env.DB_DIALECT || 'postgres',
-    dialectModule: pg,
+    dialect: dialect,
+    dialectModule: dialectModule,
     logging: false, // Set to console.log to see SQL queries
     pool: {
       max: 5,

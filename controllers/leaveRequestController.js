@@ -362,7 +362,7 @@ exports.getAllRequests = async (req, res) => {
         };
 
         const role = req.user?.Role?.name || req.user?.role || '';
-        if (role.toUpperCase() === 'MEKUDI' && req.user.UserProfile?.kut_id) {
+        if ((role.toUpperCase() === 'MEKUDI' || role.toUpperCase() === 'ADMIN') && req.user.UserProfile?.kut_id) {
             includeUser.required = true;
             includeUser.include[0].where = { kut_id: req.user.UserProfile.kut_id };
         } else if (role.toUpperCase() === 'ATTENDANCETAKER') {

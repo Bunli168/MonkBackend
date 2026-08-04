@@ -76,21 +76,55 @@ const retreatEventController = {
     }
   },
 
-  // Close the current active season
-  async closeSeason(req, res) {
+  // Edit an existing season
+  async editSeason(req, res) {
     try {
-      const activeEvent = await RetreatEvent.findOne({ where: { is_active: true } });
+      const { id } = req.params;
+      const { name, start_date, end_date } = req.body;
       
-      if (!activeEvent) {
-        return res.status(404).json({ success: false, message: 'No active season found to close' });
+      if (!name) {
+        return res.status(400).json({ success: false, message: 'Season name is required' });
       }
 
-      if (activeEvent.is_closed) {
-        return res.status(400).json({ success: false, message: 'Season is already closed' });
+      const eventToEdit = await RetreatEvent.findByPk(id);
+      if (!eventToEdit) {
+        return res.status(404).json({ success: false, message: 'Season not found' });
       }
 
-      await activeEvent.update({ is_closed: true });
-      res.status(200).json({ success: true, message: 'Season closed', data: activeEvent });
+      await eventToEdit.update({
+        name,
+        start_date: start_date || null,
+        end_date: end_date || null
+      });
+
+      res.status(200).json({ success: true, message: 'Season updated successfully', data: eventToEdit });
+    } catch (error) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        return res.status(400).json({ success: false, message: 'Season name already exists' });
+      }
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // Toggle the current active season open/closed state
+  async toggleSeason(req, res) {
+    try {
+      // Find the specific event by ID if provided, otherwise find active
+      const eventId = req.params.id;
+      let eventToToggle;
+      
+      if (eventId) {
+        eventToToggle = await RetreatEvent.findByPk(eventId);
+      } else {
+        eventToToggle = await RetreatEvent.findOne({ where: { is_active: true } });
+      }
+      
+      if (!eventToToggle) {
+        return res.status(404).json({ success: false, message: 'Event not found' });
+      }
+
+      await eventToToggle.update({ is_closed: !eventToToggle.is_closed });
+      res.status(200).json({ success: true, message: `Season ${eventToToggle.is_closed ? 'closed' : 'opened'} successfully`, data: eventToToggle });
     } catch (error) {
       res.status(400).json({ success: false, message: error.message });
     }
