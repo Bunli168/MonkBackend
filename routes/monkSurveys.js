@@ -8,10 +8,19 @@ const { authenticate } = require('../middleware/auth');
 // @access  Private
 router.get('/', authenticate, async (req, res) => {
   try {
+    const userWhere = { is_active: true };
+    if (req.query.role_id) {
+      if (typeof req.query.role_id === 'string' && req.query.role_id.includes(',')) {
+        userWhere.role_id = req.query.role_id.split(',');
+      } else {
+        userWhere.role_id = req.query.role_id;
+      }
+    }
+
     const surveys = await MonkSurvey.findAll({
       include: [{
         model: User,
-        where: { is_active: true },
+        where: userWhere,
         attributes: ['id', 'email', 'role_id'],
         include: [{ model: UserProfile, attributes: ['avatar_url', 'first_name_kh', 'last_name_kh', 'date_of_birth', 'phone_number', 'chhaya_number', 'from_wat'] }]
       }]

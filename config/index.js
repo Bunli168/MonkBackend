@@ -6,7 +6,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 module.exports = {
   port: process.env.PORT || 3006,
   nodeEnv: process.env.NODE_ENV || 'development',
-  corsOrigin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
+  corsOrigin: process.env.CORS_ORIGIN ? [...process.env.CORS_ORIGIN.split(','), 'https://neakavorn-pagoda.netlify.app'] : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'https://neakavorn-pagoda.netlify.app'],
   jwt: {
     secret: process.env.JWT_SECRET || 'Neakavorn Pagoda',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'Neakavorn Pagoda',

@@ -32,6 +32,7 @@ require('./services/telegramBot.js');
 require('./services/otpTelegramBot.js');
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = http.createServer(app);
 const path = require('path');
 
@@ -46,14 +47,7 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow any localhost port in development
-    if (!origin || /^http:\/\/localhost:\d+$/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, config.corsOrigin);
-    }
-  },
+  origin: true,
   credentials: true
 }));
 
@@ -94,10 +88,12 @@ app.get('/health', (req, res) => {
 });
 
 // Ensure the leave-request workflow status column supports the new approval stages
-sequelize.query("ALTER TABLE leave_requests MODIFY COLUMN status ENUM('pending','pending_mekudi','pending_superadmin','approved','rejected') NOT NULL DEFAULT 'pending_mekudi'")
-  .catch((err) => {
-    console.warn('Leave request status migration skipped:', err.message);
-  });
+if (sequelize.getDialect() === 'mysql') {
+  sequelize.query("ALTER TABLE leave_requests MODIFY COLUMN status ENUM('pending','pending_mekudi','pending_superadmin','approved','rejected') NOT NULL DEFAULT 'pending_mekudi'")
+    .catch((err) => {
+      console.warn('Leave request status migration skipped:', err.message);
+    });
+}
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -144,10 +140,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = config.port;
-httpServer.listen(PORT, () => {});
+if (!process.env.VERCEL) {
+  const PORT = config.port || 3000;
+  httpServer.listen(PORT, () => {});
+}
 
-module.exports = { io };
+module.exports = app;
 // nodemon restart trigger
 // another trigger
 // another trigger 2
