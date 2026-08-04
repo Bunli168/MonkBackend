@@ -512,7 +512,7 @@ const attendanceController = {
   async submitLeaveRequest(req, res) {
     try {
       const { user_id, kut_id, date, notes } = req.body;
-      
+
       if (!user_id || !kut_id || !date) {
         return res.status(400).json({ success: false, message: 'user_id, kut_id, and date are required' });
       }
@@ -526,7 +526,7 @@ const attendanceController = {
           end_date: { [Op.gte]: date }
         }
       });
-      
+
       if (overlappingRequest) {
         return res.status(400).json({ success: false, message: 'You already have a leave request for this date.' });
       }
@@ -542,12 +542,6 @@ const attendanceController = {
         reason: notes || 'Leave request',
         status: 'pending_mekudi'
       });
-      
-      // DO NOT create or update the Attendance record here!
-      // Attendance records should only be created/updated when the Admin/SuperAdmin APPROVES the leave request.
-      
-      // The prompt also mentioned: "queues an alert data payload" (Simulated Telegram Alert)
-      console.log(`[TELEGRAM ALERT SIMULATION] Monk ID ${user_id} requested leave for ${date}. Reason: ${notes}`);
 
       try {
         emitToAdmins('new_leave_request', {
@@ -560,7 +554,7 @@ const attendanceController = {
       } catch (notifyErr) {
         console.warn('Leave notification emit failed:', notifyErr.message);
       }
-      
+
       res.status(201).json({ success: true, message: 'Leave request submitted successfully', data: { leaveRequest } });
     } catch (error) {
       console.error('Submit leave request error:', error);

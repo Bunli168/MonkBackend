@@ -15,32 +15,36 @@ const transporter = nodemailer.createTransport({
 
 const sendOtpEmail = async (email, otp) => {
   if (!process.env.SMTP_HOST) {
-    console.log(`\n[Mock Email] ------------------------------------------------`);
-    console.log(`[Mock Email] To: ${email}`);
-    console.log(`[Mock Email] Subject: Your OTP Code`);
-    console.log(`[Mock Email] OTP Code: ${otp}`);
-    console.log(`[Mock Email] ------------------------------------------------\n`);
     return true; // Pretend it sent successfully
   }
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@pagoda.com',
+    from: `"Neakavorn" <${process.env.EMAIL_FROM || 'noreply@pagoda.com'}>`,
     to: email,
     subject: 'លេខកូដសុវត្ថិភាព OTP របស់អ្នក - ប្រព័ន្ធគ្រប់គ្រងវត្ត',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0c97f; border-radius: 8px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #8B6914, #C9A84C); padding: 24px; text-align: center;">
-          <h1 style="color: #fff; margin: 0; font-size: 22px;">🏯 ប្រព័ន្ធគ្រប់គ្រងវត្ត</h1>
-          <p style="color: #ffe9a0; margin: 6px 0 0;">Pagoda Management System</p>
-        </div>
-        <div style="padding: 32px; text-align: center;">
-          <h2 style="color: #333; margin-top: 0;">លេខកូដសុវត្ថិភាព OTP របស់អ្នក</h2>
-          <p style="font-size: 16px; color: #555;">សូមប្រើប្រាស់លេខកូដខាងក្រោម ដើម្បីចូលប្រើប្រាស់គណនីរបស់អ្នក៖</p>
-          <div style="background: #f9f5e8; border: 2px dashed #C9A84C; padding: 20px; font-size: 36px; font-weight: bold; letter-spacing: 8px; margin: 24px 0; color: #8B6914; border-radius: 8px;">
-            ${otp}
+      <div style="background-color: #F8FAFC; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+          <div style="border-top: 4px solid #0F172A; padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #F1F5F9;">
+            <h1 style="color: #0F172A; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">ប្រព័ន្ធគ្រប់គ្រងវត្ត</h1>
+            <p style="color: #64748B; margin: 6px 0 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Pagoda Management System</p>
           </div>
-          <p style="color: #e74c3c; font-size: 14px; font-weight: bold;">⚠️ លេខកូដនេះនឹងផុតកំណត់ក្នុងរយៈពេល ៥ នាទី។</p>
-          <p style="color: #999; font-size: 12px; margin-top: 24px;">ប្រសិនបើអ្នកមិនបានស្នើសុំលេខកូដនេះទេ សូមបដិសេធអ៊ីមែលនេះ។</p>
+          <div style="padding: 32px; text-align: center;">
+            <h2 style="color: #1E293B; margin-top: 0; font-size: 20px; font-weight: 600;">លេខកូដសុវត្ថិភាព OTP របស់អ្នក</h2>
+            <p style="font-size: 15px; color: #475569; line-height: 1.6;">សូមប្រើប្រាស់លេខកូដខាងក្រោម ដើម្បីចូលប្រើប្រាស់គណនីរបស់អ្នក៖</p>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 24px; font-size: 38px; font-weight: 700; letter-spacing: 12px; margin: 32px 0; color: #0F172A; border-radius: 12px; display: inline-block;">
+              ${otp}
+            </div>
+            <div style="margin-top: 16px;">
+              <span style="background: #FEF2F2; color: #991B1B; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid #FEE2E2;">⚠️ លេខកូដនេះនឹងផុតកំណត់ក្នុងរយៈពេល ៥ នាទី។</span>
+            </div>
+          </div>
+          <div style="background: #F8FAFC; padding: 24px 32px; border-top: 1px solid #E2E8F0; text-align: center;">
+            <p style="color: #64748B; font-size: 12px; margin: 0; line-height: 1.6;">
+              ប្រសិនបើអ្នកមិនបានស្នើសុំលេខកូដនេះទេ សូមបដិសេធអ៊ីមែលនេះ។<br/>
+              If you didn't request this, please ignore this email.
+            </p>
+          </div>
         </div>
       </div>
     `
@@ -57,27 +61,33 @@ const sendOtpEmail = async (email, otp) => {
 
 const sendPasswordResetEmail = async (email, resetToken) => {
   if (!process.env.SMTP_HOST) {
-    console.log(`[Mock Email] Skipping password reset email for ${email} (no SMTP_HOST configured)`);
     return false;
   }
   const resetUrl = `${process.env.CORS_ORIGIN}/reset-password?token=${resetToken}`;
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@pagoda.com',
+    from: `"Neakavorn" <${process.env.EMAIL_FROM || 'noreply@pagoda.com'}>`,
     to: email,
     subject: 'Password Reset Request',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Password Reset Request</h2>
-        <p>You requested a password reset for your account.</p>
-        <p>Click the button below to reset your password:</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetUrl}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-            Reset Password
-          </a>
+      <div style="background-color: #F8FAFC; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+          <div style="border-top: 4px solid #0F172A; padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #F1F5F9;">
+            <h1 style="color: #0F172A; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">ប្រព័ន្ធគ្រប់គ្រងវត្ត</h1>
+            <p style="color: #64748B; margin: 6px 0 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Pagoda Management System</p>
+          </div>
+          <div style="padding: 32px; text-align: center;">
+            <h2 style="color: #1E293B; margin-top: 0; font-size: 20px; font-weight: 600;">Password Reset Request</h2>
+            <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-bottom: 32px;">You recently requested to reset your password for your account. Click the button below to reset it:</p>
+            <a href="${resetUrl}" style="display: inline-block; background: #0F172A; color: #FFFFFF; font-weight: 600; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">Reset Password</a>
+            <p style="color: #94A3B8; font-size: 13px; margin-top: 24px;">This link will expire in 1 hour.</p>
+          </div>
+          <div style="background: #F8FAFC; padding: 24px 32px; border-top: 1px solid #E2E8F0; text-align: center;">
+            <p style="color: #64748B; font-size: 12px; margin: 0; line-height: 1.6;">
+              If you didn't request this, please ignore this email.
+            </p>
+          </div>
         </div>
-        <p style="color: #666;">This link will expire in 1 hour.</p>
-        <p style="color: #999; font-size: 12px;">If you didn't request this, please ignore this email.</p>
       </div>
     `
   };
@@ -95,46 +105,61 @@ const sendWelcomeEmail = async (toEmail, generatedEmail, defaultPassword, fullNa
   const verifyUrl = verificationToken ? `${process.env.CORS_ORIGIN || 'http://localhost:5174'}/verify-email?token=${verificationToken}` : null;
 
   if (!process.env.SMTP_HOST) {
-    console.log(`\n[Mock Email] ------------------------------------------------`);
-    console.log(`[Mock Email] Skipping actual welcome email for ${toEmail} (no SMTP_HOST configured)`);
-    console.log(`[Mock Email] Generated Email: ${generatedEmail}`);
-    console.log(`[Mock Email] Default Password: ${defaultPassword}`);
-    if (verificationToken) {
-      console.log(`[Mock Email] VERIFICATION LINK: ${verifyUrl}`);
-    }
-    console.log(`[Mock Email] ------------------------------------------------\n`);
+    if (verificationToken) {}
     return true;
   }
 
 
   const additionalContent = verificationToken ? `
-    <div style="background: #eef2f5; padding: 15px; border-left: 4px solid #006D80; margin-top: 20px;">
-      <p style="font-weight: bold; color: #006D80; margin-top: 0;">Account Verification Required</p>
-      <p>Before you can log in, please verify your email address by clicking the link below:</p>
-      <a href="${verifyUrl}" style="display: inline-block; background: #006D80; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-top: 10px;">Verify Account</a>
-    </div>
+      <div style="text-align: center; margin: 32px 0;">
+        <h3 style="margin-top: 0; color: #0F172A; font-size: 16px; font-weight: 600;">Account Verification Required</h3>
+        <p style="color: #475569; font-size: 14px; margin-bottom: 24px;">Before you can log in, please verify your email address by clicking the button below:</p>
+        <a href="${verifyUrl}" style="display: inline-block; background: #0F172A; color: #FFFFFF; font-weight: 600; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">Verify Account</a>
+      </div>
   ` : '';
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@pagoda.kh',
+    from: `"Neakavorn" <${process.env.EMAIL_FROM || 'noreply@pagoda.kh'}>`,
     to: toEmail,
     subject: 'ស្វាគមន៍ — ព័ត៌មានចូលប្រព័ន្ធ Pagoda Management',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0c97f; border-radius: 8px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #8B6914, #C9A84C); padding: 24px; text-align: center;">
-          <h1 style="color: #fff; margin: 0; font-size: 22px;">🏯 ប្រព័ន្ធគ្រប់គ្រងវត្ត</h1>
-          <p style="color: #ffe9a0; margin: 6px 0 0;">Pagoda Management System</p>
-        </div>
-        <div style="padding: 32px;">
-          <p style="font-size: 16px; color: #333;">សូមស្វាគមន៍ <strong>${fullName}</strong>,</p>
-          <p style="color: #555;">គណនីរបស់អ្នកត្រូវបានបង្កើតដោយអ្នកគ្រប់គ្រង។ ${verificationToken ? 'សូមបញ្ជាក់អ៊ីមែលរបស់អ្នកដើម្បីទទួលបានលេខសម្ងាត់:' : 'ខាងក្រោមជាព័ត៌មានចូលប្រើប្រាស់:'}</p>
-          <div style="background: #f9f5e8; border-left: 4px solid #C9A84C; padding: 16px; margin: 20px 0; border-radius: 4px;">
-            <p style="margin: 6px 0;"><strong>អ៊ីមែល:</strong> <code style="background:#fff; padding:2px 8px; border-radius:3px;">${generatedEmail}</code></p>
-            ${!verificationToken ? `<p style="margin: 6px 0;"><strong>លេខសម្ងាត់:</strong> <code style="background:#fff; padding:2px 8px; border-radius:3px;">${defaultPassword}</code></p>` : ''}
+      <div style="background-color: #F8FAFC; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+          <div style="border-top: 4px solid #0F172A; padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #F1F5F9;">
+            <h1 style="color: #0F172A; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">ប្រព័ន្ធគ្រប់គ្រងវត្ត</h1>
+            <p style="color: #64748B; margin: 6px 0 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Pagoda Management System</p>
           </div>
-          ${additionalContent}
-          ${!verificationToken ? `<p style="color: #c0392b; font-weight: bold;">⚠️ សូមប្ដូរលេខសម្ងាត់ភ្លាមៗបន្ទាប់ពីចូល!</p>` : ''}
-          <p style="color: #999; font-size: 12px; margin-top: 32px;">ប្រសិនបើអ្នកមិនបានស្នើសុំ សូមទាក់ទងអ្នកគ្រប់គ្រង។</p>
+          <div style="padding: 32px;">
+            <p style="font-size: 16px; color: #1E293B; margin-top: 0; font-weight: 600;">សូមស្វាគមន៍ <strong>${fullName}</strong>,</p>
+            <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">គណនីរបស់អ្នកត្រូវបានបង្កើតដោយអ្នកគ្រប់គ្រង។ ${verificationToken ? 'សូមបញ្ជាក់អ៊ីមែលរបស់អ្នកដើម្បីទទួលបានលេខសម្ងាត់:' : 'ខាងក្រោមជាព័ត៌មានចូលប្រើប្រាស់របស់អ្នក:'}</p>
+            
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px 24px; border-radius: 12px; margin-bottom: 24px;">
+              <p style="margin: 0 0 8px 0; color: #64748B; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">ព័ត៌មានគណនី (Account Details)</p>
+              <p style="margin: 0 0 ${!verificationToken ? '16px' : '0'} 0; color: #475569; font-size: 14px;">
+                <strong>អ៊ីមែល (Email):</strong><br/>
+                <span style="display: block; margin-top: 6px; color: #0F172A; font-weight: 600; font-size: 16px;">${generatedEmail}</span>
+              </p>
+              ${!verificationToken ? `<p style="margin: 0; color: #475569; font-size: 14px;">
+                <strong>លេខសម្ងាត់ (Password):</strong><br/>
+                <span style="display: inline-block; margin-top: 6px; color: #0F172A; font-weight: 600; font-size: 16px; background: #E2E8F0; padding: 4px 12px; border-radius: 6px;">${defaultPassword}</span>
+              </p>` : ''}
+            </div>
+            
+            ${additionalContent}
+            
+            ${!verificationToken ? `<div style="background: #FEF2F2; border: 1px solid #FEE2E2; border-left: 4px solid #EF4444; padding: 16px; border-radius: 8px; margin-top: 8px;">
+              <p style="color: #991B1B; margin: 0; font-size: 14px; font-weight: 500; display: flex; align-items: center;">
+                <span style="font-size: 18px; margin-right: 8px;">⚠️</span> សូមប្ដូរលេខសម្ងាត់ភ្លាមៗបន្ទាប់ពីចូលប្រព័ន្ធ!
+              </p>
+            </div>` : ''}
+          </div>
+          
+          <div style="background: #F8FAFC; padding: 24px 32px; border-top: 1px solid #E2E8F0; text-align: center;">
+            <p style="color: #64748B; font-size: 12px; margin: 0; line-height: 1.6;">
+              ប្រសិនបើអ្នកមិនបានស្នើសុំ សូមទាក់ទងអ្នកគ្រប់គ្រង។<br/>
+              If you did not request this, please contact the administrator.
+            </p>
+          </div>
         </div>
       </div>
     `
@@ -151,35 +176,53 @@ const sendWelcomeEmail = async (toEmail, generatedEmail, defaultPassword, fullNa
 
 const sendVerifiedPasswordEmail = async (toEmail, generatedEmail, defaultPassword, fullName) => {
   if (!process.env.SMTP_HOST) {
-    console.log(`\n[Mock Email] ------------------------------------------------`);
-    console.log(`[Mock Email] Verified Password Email for ${toEmail}`);
-    console.log(`[Mock Email] Password: ${defaultPassword}`);
-    console.log(`[Mock Email] ------------------------------------------------\n`);
     return true;
   }
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'noreply@pagoda.kh',
+    from: `"Neakavorn" <${process.env.EMAIL_FROM || 'noreply@pagoda.kh'}>`,
     to: toEmail,
     subject: 'គណនីរបស់អ្នកត្រូវបានបញ្ជាក់ — ព័ត៌មានចូលប្រព័ន្ធ',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0c97f; border-radius: 8px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #8B6914, #C9A84C); padding: 24px; text-align: center;">
-          <h1 style="color: #fff; margin: 0; font-size: 22px;">🏯 ប្រព័ន្ធគ្រប់គ្រងវត្ត</h1>
-          <p style="color: #ffe9a0; margin: 6px 0 0;">Pagoda Management System</p>
-        </div>
-        <div style="padding: 32px;">
-          <p style="font-size: 16px; color: #333;">សួស្តី <strong>${fullName}</strong>,</p>
-          <p style="color: #555;">គណនីរបស់អ្នកត្រូវបានបញ្ជាក់ដោយជោគជ័យ។ ខាងក្រោមជាព័ត៌មានចូលប្រើប្រាស់របស់អ្នក:</p>
-          <div style="background: #f9f5e8; border-left: 4px solid #C9A84C; padding: 16px; margin: 20px 0; border-radius: 4px;">
-            <p style="margin: 6px 0;"><strong>អ៊ីមែល:</strong> <code style="background:#fff; padding:2px 8px; border-radius:3px;">${generatedEmail}</code></p>
-            <p style="margin: 6px 0;"><strong>លេខសម្ងាត់:</strong> <code style="background:#fff; padding:2px 8px; border-radius:3px;">${defaultPassword}</code></p>
+      <div style="background-color: #F8FAFC; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+          <div style="border-top: 4px solid #0F172A; padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #F1F5F9;">
+            <h1 style="color: #0F172A; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">ប្រព័ន្ធគ្រប់គ្រងវត្ត</h1>
+            <p style="color: #64748B; margin: 6px 0 0; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Pagoda Management System</p>
           </div>
-          <p style="color: #c0392b; font-weight: bold;">⚠️ សូមប្ដូរលេខសម្ងាត់ភ្លាមៗបន្ទាប់ពីចូល!</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CORS_ORIGIN || 'http://localhost:5174'}/login" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              ចូលប្រព័ន្ធ / Login
-            </a>
+          <div style="padding: 32px;">
+            <p style="font-size: 16px; color: #1E293B; margin-top: 0; font-weight: 600;">សួស្តី <strong>${fullName}</strong>,</p>
+            <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">គណនីរបស់អ្នកត្រូវបានបញ្ជាក់ដោយជោគជ័យ។ ខាងក្រោមជាព័ត៌មានចូលប្រើប្រាស់របស់អ្នក:</p>
+            
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px 24px; border-radius: 12px; margin-bottom: 24px;">
+              <p style="margin: 0 0 8px 0; color: #64748B; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">ព័ត៌មានគណនី (Account Details)</p>
+              <p style="margin: 0 0 16px 0; color: #475569; font-size: 14px;">
+                <strong>អ៊ីមែល (Email):</strong><br/>
+                <span style="display: block; margin-top: 6px; color: #0F172A; font-weight: 600; font-size: 16px;">${generatedEmail}</span>
+              </p>
+              <p style="margin: 0; color: #475569; font-size: 14px;">
+                <strong>លេខសម្ងាត់ (Password):</strong><br/>
+                <span style="display: inline-block; margin-top: 6px; color: #0F172A; font-weight: 600; font-size: 16px; background: #E2E8F0; padding: 4px 12px; border-radius: 6px;">${defaultPassword}</span>
+              </p>
+            </div>
+            
+            <div style="background: #FEF2F2; border: 1px solid #FEE2E2; border-left: 4px solid #EF4444; padding: 16px; border-radius: 8px; margin-bottom: 32px;">
+              <p style="color: #991B1B; margin: 0; font-size: 14px; font-weight: 500; display: flex; align-items: center;">
+                <span style="font-size: 18px; margin-right: 8px;">⚠️</span> សូមប្ដូរលេខសម្ងាត់ភ្លាមៗបន្ទាប់ពីចូលប្រព័ន្ធ!
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${process.env.CORS_ORIGIN || 'http://localhost:5174'}/login" style="display: inline-block; background: #0F172A; color: #FFFFFF; font-weight: 600; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
+                ចូលប្រព័ន្ធ (Login)
+              </a>
+            </div>
+          </div>
+          
+          <div style="background: #F8FAFC; padding: 24px 32px; border-top: 1px solid #E2E8F0; text-align: center;">
+            <p style="color: #64748B; font-size: 12px; margin: 0; line-height: 1.6;">
+              ប្រសិនបើអ្នកមានចម្ងល់ សូមទាក់ទងអ្នកគ្រប់គ្រង។
+            </p>
           </div>
         </div>
       </div>

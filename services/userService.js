@@ -301,6 +301,30 @@ const userService = {
   // Existing methods (unchanged)
   // ──────────────────────────────────────────────────────────────────────────
 
+  async resendVerification(email) {
+    const user = await User.findOne({ 
+        where: { email },
+        include: [{ model: require('../models').UserProfile }]
+    });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    if (user.is_verified) {
+      throw new Error('User is already verified');
+    }
+    if (!user.verification_token) {
+      user.verification_token = require('uuid').v4();
+      await user.save();
+    }
+    
+    const { sendWelcomeEmail } = require('../utils/email');
+    const fullName = user.UserProfile ? `${user.UserProfile.first_name_en || ''} ${user.UserProfile.last_name_en || ''}`.trim() : (user.name || '');
+    const finalFullName = fullName || 'User';
+    
+    await sendWelcomeEmail(user.email, user.email, null, finalFullName, user.verification_token);
+    return { success: true };
+  },
+
   async getAllUsers(options = {}) {
     const { Op } = require('sequelize');
     const { search, isActive, isVerified, roleId, roleIds, page = 1, perPage = 10, sortBy = 'created_at', sortOrder = 'DESC', requestingUser } = options;

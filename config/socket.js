@@ -41,8 +41,6 @@ const initializeSocket = (httpServer) => {
   });
 
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.user.email}`);
-
     // Join user-specific room
     socket.join(`user_${socket.user.id}`);
 
@@ -80,9 +78,7 @@ const initializeSocket = (httpServer) => {
     });
 
     // Handle disconnect
-    socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.user.email}`);
-    });
+    socket.on('disconnect', () => {});
   });
 
   return io;

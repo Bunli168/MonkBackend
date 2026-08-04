@@ -15,6 +15,9 @@ router.get('/me', userController.getMyProfile);
 // Register a new user (Admin/SuperAdmin only)
 router.post('/register', authenticate, adminRegisterUserValidation, userController.registerUser);
 
+// Resend verification email
+router.post('/resend-verification', authenticate, userController.resendVerification);
+
 // Public self-registration for monk/bhikkhu users
 router.post('/self-register', userController.registerUser);
 

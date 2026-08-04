@@ -178,11 +178,7 @@ class AuthController {
     try {
       const { token } = req.params;
       const { newPassword } = req.body;
-      
-      console.log('--- CHANGE PASSWORD DEBUG ---');
-      console.log('Received token:', token);
-      console.log('Body:', req.body);
-      
+
       await authService.changePassword(token, newPassword);
 
       res.json({

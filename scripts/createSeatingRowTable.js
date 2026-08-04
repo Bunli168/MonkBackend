@@ -3,8 +3,7 @@ const sequelize = require('../config/database');
 const createSeatingRowTable = async () => {
   try {
     await sequelize.authenticate();
-    console.log('Database connection established successfully.');
-    
+
     // Create the seating_rows table using raw SQL
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS seating_rows (
@@ -20,8 +19,7 @@ const createSeatingRowTable = async () => {
         FOREIGN KEY (kut_id) REFERENCES kuts(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    
-    console.log('Seating row table created successfully!');
+
     process.exit(0);
   } catch (error) {
     console.error('Error creating seating row table:', error);

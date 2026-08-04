@@ -145,11 +145,7 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = config.port;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${config.nodeEnv}`);
-  console.log(`CORS origin: ${config.corsOrigin}`);
-});
+httpServer.listen(PORT, () => {});
 
 module.exports = { io };
 // nodemon restart trigger

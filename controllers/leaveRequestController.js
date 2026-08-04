@@ -362,7 +362,7 @@ exports.getAllRequests = async (req, res) => {
         };
 
         const role = req.user?.Role?.name || req.user?.role || '';
-        if (role.toUpperCase() === 'MEKUDI' && req.user.UserProfile?.kut_id) {
+        if (['MEKUDI', 'ADMIN'].includes(role.toUpperCase()) && req.user.UserProfile?.kut_id) {
             includeUser.required = true;
             includeUser.include[0].where = { kut_id: req.user.UserProfile.kut_id };
         } else if (role.toUpperCase() === 'ATTENDANCETAKER') {
@@ -413,6 +413,15 @@ exports.updateStatus = async (req, res) => {
         }
 
         const actorRole = req.user?.Role?.name || req.user?.role || '';
+        
+        // Scope check for Admin/Mekudi
+        if (['ADMIN', 'MEKUDI'].includes(actorRole.toUpperCase()) && req.user.UserProfile?.kut_id) {
+            const monkProfile = await UserProfile.findOne({ where: { user_id: leaveRequest.user_id } });
+            if (monkProfile && monkProfile.kut_id !== req.user.UserProfile.kut_id) {
+                return res.status(403).json({ message: 'You can only approve leave requests for members of your own Kudi' });
+            }
+        }
+
         const workflow = transitionLeaveRequest({
             currentStatus: leaveRequest.status,
             requestedAction: status,

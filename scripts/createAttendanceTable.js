@@ -3,8 +3,7 @@ const sequelize = require('../config/database');
 const createAttendanceTable = async () => {
   try {
     await sequelize.authenticate();
-    console.log('Database connection established successfully.');
-    
+
     // Create the attendances table using raw SQL
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS attendances (
@@ -21,8 +20,7 @@ const createAttendanceTable = async () => {
         FOREIGN KEY (kut_id) REFERENCES kuts(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
-    
-    console.log('Attendance table created successfully!');
+
     process.exit(0);
   } catch (error) {
     console.error('Error creating attendance table:', error);
