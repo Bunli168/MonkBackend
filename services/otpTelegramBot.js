@@ -15,11 +15,7 @@ if (token) {
         return tk;
     };
 
-    bot.getMe().then((me) => {
-        console.log(`✅ NEW OTP BOT INITIALIZED! Username: @${me.username} | Link: https://t.me/${me.username}`);
-    }).catch(err => console.log('Could not fetch OTP bot info:', err.message));
-
-    console.log('OTP Telegram bot initialized and polling...');
+    bot.getMe().then((me) => {}).catch(err => );
 
     async function handleAutoLink(chatId, queryStr, username) {
         try {
@@ -33,7 +29,7 @@ if (token) {
             if (userProfile) {
                 user = await User.findByPk(userProfile.user_id);
             } else {
-                user = await User.findOne({ where: { email: norm } }) || await User.findOne({ where: { phone: norm } });
+                user = (await User.findOne({ where: { email: norm } })) || (await User.findOne({ where: { phone: norm } }));
             }
 
             if (!user) {
@@ -85,9 +81,7 @@ if (token) {
         }
     });
 
-    bot.on('polling_error', (error) => {
-        console.log('OTP BOT POLLING ERROR:', error);
-    });
+    bot.on('polling_error', (error) => {});
 
     bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         const chatId = msg.chat.id;
@@ -155,9 +149,6 @@ if (token) {
             bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញគណនីសម្រាប់ "${match[1]}" ទេ។ សូមត្រួតពិនិត្យលេខទូរស័ព្ទ ឬអ៊ីមែលរបស់អ្នកឡើងវិញ។`);
         }
     });
-
-} else {
-    console.log('TELEGRAM_OTP_BOT_TOKEN not found. OTP Telegram bot is disabled.');
-}
+} else {}
 
 module.exports = bot;

@@ -243,8 +243,8 @@ const authService = {
     await RefreshToken.destroy({ where: { user_id: userId } });
 
     // Generate new tokens for the current session to keep them logged in
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user.id);
+    const newAccessToken = generateAccessToken({ userId: user.id, email: user.email });
+    const newRefreshToken = generateRefreshToken({ userId: user.id });
     
     await RefreshToken.create({
       token: newRefreshToken,

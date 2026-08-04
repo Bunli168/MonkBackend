@@ -8,12 +8,8 @@ const linkingTokens = new Map(); // Store temporary tokens for linking accounts
 
 if (token) {
     bot = new TelegramBot(token, { polling: true });
-    
-    bot.getMe().then((me) => {
-        console.log(`✅ LEAVE REQUEST BOT INITIALIZED! Username: @${me.username} | Link: https://t.me/${me.username}`);
-    }).catch(err => console.log('Could not fetch bot info:', err.message));
 
-    console.log('Telegram bot initialized and polling...');
+    bot.getMe().then((me) => {}).catch(err => );
 
     async function handleAutoLink(chatId, queryStr, username) {
         try {
@@ -27,7 +23,7 @@ if (token) {
             if (userProfile) {
                 user = await User.findByPk(userProfile.user_id);
             } else {
-                user = await User.findOne({ where: { email: norm } }) || await User.findOne({ where: { phone: norm } });
+                user = (await User.findOne({ where: { email: norm } })) || (await User.findOne({ where: { phone: norm } }));
             }
 
             if (!user) {
@@ -85,9 +81,7 @@ if (token) {
         }
     });
 
-    bot.on('polling_error', (error) => {
-        console.log('BOT POLLING ERROR:', error);
-    });
+    bot.on('polling_error', (error) => {});
 
     // /start command with auto detection and 1-click contact button
     bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
@@ -331,10 +325,7 @@ if (token) {
             bot.answerCallbackQuery(query.id, { text: 'An error occurred.', show_alert: true }).catch(() => {});
         }
     });
-
-} else {
-    console.log('TELEGRAM_BOT_TOKEN not found. Telegram bot is disabled.');
-}
+} else {}
 
 const generateLinkingToken = (userId) => {
     const crypto = require('crypto');

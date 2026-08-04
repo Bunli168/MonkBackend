@@ -142,11 +142,7 @@ app.use((err, req, res, next) => {
 // Start server
 if (!process.env.VERCEL) {
   const PORT = config.port || 3000;
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Environment: ${config.nodeEnv}`);
-    console.log(`CORS origin: ${config.corsOrigin}`);
-  });
+  httpServer.listen(PORT, () => {});
 }
 
 module.exports = app;

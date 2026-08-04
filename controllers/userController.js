@@ -31,6 +31,19 @@ const userController = {
     }
   },
 
+  async resendVerification(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+      }
+      await userService.resendVerification(email);
+      res.json({ success: true, message: 'Verification email resent successfully' });
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      res.status(400).json({ success: false, message: error.message || 'Failed to resend verification email' });
+    }
+  },
 
   async getRoleStats(req, res) {
     try {
