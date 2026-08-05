@@ -37,6 +37,7 @@ router.delete('/:id/addresses/:addressId', userController.deleteAddress);
 
 // Update user (status, role changes)
 router.put('/:id', authenticate, userController.updateUser);
+router.put('/:id/change-role', authenticate, userController.changeUserRole);
 
 // Reset user password to default
 router.post('/:id/reset-password', authenticate, userController.resetUserPassword);

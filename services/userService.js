@@ -411,7 +411,7 @@ const userService = {
     let orderClause = [['created_at', 'DESC']];
     if (requestingUser && requestingUser.role_id === 2) {
       orderClause = [
-        [require('sequelize').literal('CASE WHEN "User"."role_id" = 2 THEN 1 WHEN "User"."role_id" = 7 THEN 2 WHEN "User"."role_id" = 3 THEN 3 ELSE 4 END'), 'ASC'],
+        [require('sequelize').literal('CASE WHEN `User`.`role_id` = 2 THEN 1 WHEN `User`.`role_id` = 7 THEN 2 WHEN `User`.`role_id` = 3 THEN 3 ELSE 4 END'), 'ASC'],
         ['created_at', 'DESC']
       ];
     } else if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
@@ -427,7 +427,7 @@ const userService = {
       if (sortBy === 'createdAt') {
         if (requestingUser && requestingUser.role_id === 2) {
           orderClause = [
-            [require('sequelize').literal('CASE WHEN "User"."role_id" = 2 THEN 1 WHEN "User"."role_id" = 7 THEN 2 WHEN "User"."role_id" = 3 THEN 3 ELSE 4 END'), 'ASC'],
+            [require('sequelize').literal('CASE WHEN `User`.`role_id` = 2 THEN 1 WHEN `User`.`role_id` = 7 THEN 2 WHEN `User`.`role_id` = 3 THEN 3 ELSE 4 END'), 'ASC'],
             ['created_at', sOrder]
           ];
         } else if (parsedRoleIds && parsedRoleIds.includes(3) && parsedRoleIds.includes(7)) {
@@ -443,6 +443,11 @@ const userService = {
         orderClause = [[UserProfile, 'first_name_kh', sOrder]];
       } else if (sortBy === 'email') {
         orderClause = [['email', sOrder]];
+      } else if (sortBy === 'role' || sortBy === 'role_id') {
+        orderClause = [
+          [require('sequelize').literal('CASE WHEN `User`.`role_id` = 2 THEN 1 WHEN `User`.`role_id` = 7 THEN 2 WHEN `User`.`role_id` = 3 THEN 3 WHEN `User`.`role_id` = 4 THEN 4 ELSE 5 END'), sOrder],
+          ['created_at', 'DESC']
+        ];
       } else {
         const userAttributes = Object.keys(User.rawAttributes);
         if (userAttributes.includes(sortBy)) {
@@ -568,6 +573,27 @@ const userService = {
       }
     }
     // -----------------------
+
+    // --- KUDI ADMIN LIMIT VALIDATION ---
+    if (profileData.kut_id !== undefined) {
+      const targetKutId = profileData.kut_id;
+      if (targetKutId) {
+        if (user.role_id === 2) { // If user is an Admin
+          const adminCount = await models.User.count({
+            where: { role_id: 2 },
+            include: [{
+              model: models.UserProfile,
+              where: { kut_id: targetKutId, user_id: { [models.Sequelize.Op.ne]: userId } },
+              required: true
+            }]
+          });
+          if (adminCount >= 3) {
+            throw new Error('This Kudi already has the maximum of 3 Admins.');
+          }
+        }
+      }
+    }
+    // -----------------------------------
 
     const [profile, created] = await UserProfile.findOrCreate({
       where:    { user_id: userId },

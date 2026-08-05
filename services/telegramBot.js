@@ -9,7 +9,7 @@ const linkingTokens = new Map(); // Store temporary tokens for linking accounts
 if (token) {
     bot = new TelegramBot(token, { polling: true });
 
-    bot.getMe().then((me) => {}).catch(err => );
+    bot.getMe().then((me) => {}).catch(err => console.error(err));
 
     async function handleAutoLink(chatId, queryStr, username) {
         try {

@@ -26,6 +26,7 @@ const universityRoutes = require('./routes/universities.js');
 const ledgerRoutes = require('./routes/ledger.js');
 const fineRoutes = require('./routes/fines.js');
 const leaveRequestRoutes = require('./routes/leaveRequests.js');
+const ceremonyEventRoutes = require('./routes/ceremonyEvents.js');
 
 // Initialize Telegram Bots
 require('./services/telegramBot.js');
@@ -120,6 +121,7 @@ app.use('/api/universities', universityRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/fines', fineRoutes);
 app.use('/api/leave-requests', leaveRequestRoutes);
+app.use('/api/ceremony-events', ceremonyEventRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -154,3 +156,9 @@ module.exports = app;
 // another trigger 5
 // another trigger 6
 // another trigger 7
+// force restart
+// force restart 2
+// force restart 3
+// force restart 4
+// force restart 4
+// force restart 5

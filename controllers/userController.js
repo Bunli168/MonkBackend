@@ -55,7 +55,7 @@ const userController = {
       const userProfileWhere = {};
 
       if (requestingUser && requestingUser.role_id === 2) {
-        where.role_id = { [Op.in]: [3, 4, 7] };
+        where.role_id = { [Op.in]: [2, 3, 4, 7] };
         if (requestingUser.UserProfile && requestingUser.UserProfile.kut_id) {
           userProfileWhere.kut_id = requestingUser.UserProfile.kut_id;
         } else {
@@ -305,6 +305,26 @@ const userController = {
         return res.status(403).json({ success: false, message: 'Forbidden: Only Super Admin can modify an Admin account' });
       }
 
+      // --- KUDI ADMIN LIMIT VALIDATION (Role Change) ---
+      if (req.body.role_id == 2 && user.role_id != 2) {
+        const { UserProfile } = require('../models');
+        const userProfile = await UserProfile.findOne({ where: { user_id: id } });
+        if (userProfile && userProfile.kut_id) {
+          const adminCount = await User.count({
+            where: { role_id: 2 },
+            include: [{
+              model: UserProfile,
+              where: { kut_id: userProfile.kut_id, user_id: { [require('sequelize').Op.ne]: id } },
+              required: true
+            }]
+          });
+          if (adminCount >= 3) {
+            return res.status(400).json({ success: false, message: 'This Kudi already has the maximum of 3 Admins.' });
+          }
+        }
+      }
+      // -------------------------------------------------
+
       // Prevent unauthorized tampering of sensitive security fields
       if (!isSuperAdmin) {
         delete req.body.role_id;
@@ -356,6 +376,47 @@ const userController = {
       }
 
       res.status(200).json({ success: true, message: 'Password reset to default. User must change password on next login.' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  async changeUserRole(req, res) {
+    try {
+      const { id } = req.params;
+      const { role_id } = req.body;
+      const { User, Role } = require('../models');
+
+      const user = await User.findByPk(id);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+      const currentUserRole = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const isSuperAdmin = req.user.role_id === 1 || currentUserRole === 'SUPERADMIN';
+      const isAdmin = req.user.role_id === 2 || currentUserRole === 'ADMIN';
+
+      if (!isSuperAdmin && !isAdmin) {
+        return res.status(403).json({ success: false, message: 'Forbidden: You do not have permission to change roles.' });
+      }
+
+      // If user is not SuperAdmin, they can only modify Monk (3), Student (4), Bhikkhu (7) 
+      // and they can only set the new role to Monk (3), Student (4), or Bhikkhu (7).
+      if (!isSuperAdmin) {
+        const allowedRoles = [3, 4, 7];
+        if (!allowedRoles.includes(user.role_id) || !allowedRoles.includes(role_id)) {
+          return res.status(403).json({ success: false, message: 'Forbidden: You can only swap roles between Monk, Bhikkhu, and Student.' });
+        }
+      }
+
+      const newRole = await Role.findByPk(role_id);
+      if (!newRole) return res.status(400).json({ success: false, message: 'Invalid role ID' });
+
+      await user.update({ role_id: role_id });
+      
+      const updatedUser = await User.findByPk(id, {
+        include: [{ model: Role, attributes: ['id', 'name'] }]
+      });
+
+      res.status(200).json({ success: true, message: 'User role updated successfully', data: updatedUser });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
