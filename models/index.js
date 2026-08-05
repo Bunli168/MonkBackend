@@ -26,6 +26,9 @@ const AttendanceRow = require('./AttendanceRow');
 const Payment = require('./Payment');
 const FinePayment = require('./FinePayment');
 const LeaveRequest = require('./LeaveRequest');
+const CeremonyEvent = require('./CeremonyEvent');
+const EventKutTarget = require('./EventKutTarget');
+const EventParticipant = require('./EventParticipant');
 
 // Associations
 
@@ -165,6 +168,26 @@ Attendance.belongsTo(RetreatEvent, { foreignKey: 'retreat_event_id' });
 RetreatEvent.hasMany(Payment, { foreignKey: 'retreat_event_id' });
 Payment.belongsTo(RetreatEvent, { foreignKey: 'retreat_event_id' });
 
+// Ceremony Events & Duty Scheduling Associations
+User.hasMany(CeremonyEvent, { foreignKey: 'created_by', as: 'CreatedCeremonies' });
+CeremonyEvent.belongsTo(User, { foreignKey: 'created_by', as: 'Creator' });
+
+CeremonyEvent.hasMany(EventKutTarget, { foreignKey: 'event_id', as: 'KutTargets' });
+EventKutTarget.belongsTo(CeremonyEvent, { foreignKey: 'event_id', as: 'CeremonyEvent' });
+
+Kut.hasMany(EventKutTarget, { foreignKey: 'kut_id' });
+EventKutTarget.belongsTo(Kut, { foreignKey: 'kut_id' });
+
+CeremonyEvent.hasMany(EventParticipant, { foreignKey: 'event_id', as: 'Participants' });
+EventParticipant.belongsTo(CeremonyEvent, { foreignKey: 'event_id', as: 'CeremonyEvent' });
+
+User.hasMany(EventParticipant, { foreignKey: 'user_id', as: 'EventParticipations' });
+EventParticipant.belongsTo(User, { foreignKey: 'user_id', as: 'User' });
+
+User.hasMany(EventParticipant, { foreignKey: 'assigned_by', as: 'AssignedParticipants' });
+EventParticipant.belongsTo(User, { foreignKey: 'assigned_by', as: 'Assigner' });
+
+
 module.exports = {
   sequelize,
   Role,
@@ -191,5 +214,8 @@ module.exports = {
   FinePayment,
   LeaveRequest,
   RetreatEvent,
-  RetreatRegistration
+  RetreatRegistration,
+  CeremonyEvent,
+  EventKutTarget,
+  EventParticipant
 };

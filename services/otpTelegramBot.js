@@ -15,7 +15,7 @@ if (token) {
         return tk;
     };
 
-    bot.getMe().then((me) => {}).catch(err => );
+    bot.getMe().then((me) => {}).catch(err => console.error(err));
 
     async function handleAutoLink(chatId, queryStr, username) {
         try {
