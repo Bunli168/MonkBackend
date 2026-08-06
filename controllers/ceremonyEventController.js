@@ -7,7 +7,7 @@ const ceremonyEventController = {
   async getAllEvents(req, res) {
     try {
       let whereClause = {};
-      const roleName = req.user.Role ? req.user.Role.name.toUpperCase() : '';
+      const roleName = req.user.Role ? req.user.Role.name.replace(/\s+/g, '').toUpperCase() : '';
       console.log('getAllEvents called. User Role:', roleName, 'User ID:', req.user.id);
       
       if (roleName !== 'SUPERADMIN') {
@@ -533,7 +533,7 @@ const ceremonyEventController = {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      const roleName = req.user.Role ? req.user.Role.name.toUpperCase() : '';
+      const roleName = req.user.Role ? req.user.Role.name.replace(/\s+/g, '').toUpperCase() : '';
       if (roleName !== 'SUPERADMIN' && event.created_by !== req.user.id) {
         await t.rollback();
         return res.status(403).json({ success: false, message: 'You do not have permission to modify this event.' });
@@ -629,7 +629,7 @@ const ceremonyEventController = {
         return res.status(404).json({ success: false, message: 'Event not found' });
       }
 
-      const roleName = req.user.Role ? req.user.Role.name.toUpperCase() : '';
+      const roleName = req.user.Role ? req.user.Role.name.replace(/\s+/g, '').toUpperCase() : '';
       if (roleName !== 'SUPERADMIN' && event.created_by !== req.user.id) {
         await t.rollback();
         return res.status(403).json({ success: false, message: 'You do not have permission to delete this event.' });

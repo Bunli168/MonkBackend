@@ -115,7 +115,7 @@ const userController = {
       const { id } = req.params;
       
       // Prevent IDOR
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       if (req.user.id !== parseInt(id) && !['SUPERADMIN', 'ADMIN'].includes(role)) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -180,7 +180,7 @@ const userController = {
       const { id } = req.params;
       
       // Prevent IDOR
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       if (req.user.id !== parseInt(id) && !['SUPERADMIN', 'ADMIN'].includes(role)) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -198,7 +198,7 @@ const userController = {
       const { id } = req.params;
       
       // Prevent IDOR
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       if (req.user.id !== parseInt(id) && !['SUPERADMIN', 'ADMIN'].includes(role)) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -216,7 +216,7 @@ const userController = {
       const { id, addressId } = req.params;
       
       // Prevent IDOR
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       if (req.user.id !== parseInt(id) && !['SUPERADMIN', 'ADMIN'].includes(role)) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -234,7 +234,7 @@ const userController = {
       const { id, addressId } = req.params;
       
       // Prevent IDOR
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       if (req.user.id !== parseInt(id) && !['SUPERADMIN', 'ADMIN'].includes(role)) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -252,7 +252,7 @@ const userController = {
       const { id } = req.params;
       
       // Prevent IDOR
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       if (req.user.id !== parseInt(id) && !['SUPERADMIN', 'ADMIN'].includes(role)) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -270,7 +270,7 @@ const userController = {
       const { id, documentId } = req.params;
       
       // Prevent IDOR
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       if (req.user.id !== parseInt(id) && !['SUPERADMIN', 'ADMIN'].includes(role)) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -291,7 +291,7 @@ const userController = {
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
       // Prevent IDOR & Privilege Escalation (A is A, B cannot cheat)
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       const isSuperAdmin = req.user.role_id === 1 || role === 'SUPERADMIN';
       const isAdmin = req.user.role_id === 2 || role === 'ADMIN';
 
@@ -353,7 +353,7 @@ const userController = {
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
       // Prevent IDOR & Hacker cheating on Reset Password
-      const role = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const role = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       const isSuperAdmin = req.user.role_id === 1 || role === 'SUPERADMIN';
       const isAdmin = req.user.role_id === 2 || role === 'ADMIN';
 
@@ -390,7 +390,7 @@ const userController = {
       const user = await User.findByPk(id);
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-      const currentUserRole = req.user.Role ? req.user.Role.name.toUpperCase() : (req.user.role || '').toUpperCase();
+      const currentUserRole = req.user.Role ? req.user.Role.name.replace(/\s+/g, "").toUpperCase() : (req.user.role || '').replace(/\s+/g, "").toUpperCase();
       const isSuperAdmin = req.user.role_id === 1 || currentUserRole === 'SUPERADMIN';
       const isAdmin = req.user.role_id === 2 || currentUserRole === 'ADMIN';
 

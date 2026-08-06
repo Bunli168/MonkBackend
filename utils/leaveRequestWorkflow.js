@@ -5,7 +5,7 @@ const ROLE_ORDER = {
 };
 
 function transitionLeaveRequest({ currentStatus, requestedAction, actorRole }) {
-  const normalizedRole = (actorRole || '').toUpperCase();
+  const normalizedRole = (actorRole || '').replace(/\s+/g, '').toUpperCase();
 
   if (requestedAction === 'rejected') {
     return {

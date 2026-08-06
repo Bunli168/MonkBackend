@@ -57,8 +57,8 @@ const authorize = (roles) => {
 
     const userRole = req.user.Role ? req.user.Role.name : null;
     
-    const uppercaseRoles = roles.map(r => r.toUpperCase());
-    const uppercaseUserRole = userRole ? userRole.toUpperCase() : null;
+    const uppercaseRoles = roles.map(r => r.replace(/\s+/g, '').toUpperCase());
+    const uppercaseUserRole = userRole ? userRole.replace(/\s+/g, '').toUpperCase() : null;
     
     if (!uppercaseRoles.includes(uppercaseUserRole)) {
       return res.status(403).json({ 

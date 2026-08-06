@@ -19,10 +19,10 @@ router.get('/pending-assignments', authenticate, authorize(['SUPERADMIN', 'ADMIN
 router.get('/member-responses', authenticate, authorize(['SUPERADMIN', 'ADMIN', 'MEKUDI']), ceremonyEventController.getMemberResponses);
 
 // 4.0 Monk fetches their assigned events
-router.get('/my-assignments', authenticate, authorize(['MONK', 'BHIKKHU', 'SUPERADMIN', 'ADMIN', 'MEKUDI']), ceremonyEventController.getMyAssignments);
+router.get('/my-assignments', authenticate, authorize(['MONK', 'BHIKKHU', 'SUPERADMIN', 'ADMIN', 'MEKUDI', 'ATTENDANCETAKER']), ceremonyEventController.getMyAssignments);
 
 // 4.0 Monk updates their assignment status
-router.put('/my-assignments/:eventId/status', authenticate, authorize(['MONK', 'BHIKKHU', 'SUPERADMIN', 'ADMIN', 'MEKUDI']), ceremonyEventController.updateMyAssignmentStatus);
+router.put('/my-assignments/:eventId/status', authenticate, authorize(['MONK', 'BHIKKHU', 'SUPERADMIN', 'ADMIN', 'MEKUDI', 'ATTENDANCETAKER']), ceremonyEventController.updateMyAssignmentStatus);
 
 // 4. Mekudi assigns monks to a target
 router.post('/target/:id/assign', authenticate, authorize(['MEKUDI', 'SUPERADMIN', 'ADMIN']), ceremonyEventController.assignMonks);
