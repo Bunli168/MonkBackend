@@ -38,14 +38,14 @@ class AuthController {
       });
     } catch (error) {
       console.error('Login error:', error);
-      
+
       if (error.message === 'Invalid credentials') {
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
         });
       }
-      
+
       if (error.message === 'Account is inactive') {
         return res.status(403).json({
           success: false,
@@ -89,7 +89,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('OTP verification error:', error);
-      
+
       if (error.message === 'Invalid or expired session' || error.message === 'Invalid OTP code' || error.message === 'Invalid Authenticator code') {
         return res.status(400).json({
           success: false,
@@ -116,7 +116,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Resend OTP error:', error);
-      
+
       if (error.message === 'Invalid or expired session' || error.message === 'User not found') {
         return res.status(400).json({
           success: false,
@@ -134,7 +134,7 @@ class AuthController {
   async refreshToken(req, res) {
     try {
       const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
-      
+
       if (!refreshToken) {
         return res.status(401).json({
           success: false,
@@ -159,7 +159,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Refresh token error:', error);
-      
+
       if (error.message === 'Invalid or expired refresh token' || error.message === 'Refresh token not found') {
         return res.status(401).json({
           success: false,
@@ -187,7 +187,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Change password error:', error);
-      
+
       if (error.message === 'Invalid or expired token' || error.message === 'User not found') {
         return res.status(401).json({
           success: false,
@@ -209,7 +209,7 @@ class AuthController {
         return res.status(400).json({ success: false, message: 'Current password and new password are required' });
       }
       const result = await authService.updateMyPassword(req.user.id, currentPassword, newPassword);
-      
+
       if (result.refreshToken) {
         res.cookie('refreshToken', result.refreshToken, {
           httpOnly: true,
@@ -244,7 +244,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Get profile error:', error);
-      
+
       if (error.message === 'User not found') {
         return res.status(404).json({
           success: false,
@@ -286,7 +286,7 @@ class AuthController {
 
       // Convert to relative path that the frontend can use with the API base URL
       const relativePath = '/' + req.file.path.replace(/\\/g, '/');
-      
+
       await authService.updateAvatar(req.user.id, relativePath);
 
       res.json({
@@ -331,7 +331,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('TOTP setup error:', error);
-      
+
       if (error.message === 'TOTP is already enabled') {
         return res.status(400).json({
           success: false,
@@ -357,7 +357,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('TOTP verify error:', error);
-      
+
       if (error.message === 'Invalid TOTP token') {
         return res.status(400).json({
           success: false,
@@ -383,7 +383,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('TOTP disable error:', error);
-      
+
       if (error.message === 'TOTP is not enabled' || error.message === 'Invalid TOTP token') {
         return res.status(400).json({
           success: false,
@@ -467,7 +467,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Forgot password error:', error);
-      
+
       if (error.message === 'USER_RESET_FORBIDDEN') {
         return res.status(403).json({
           success: false,
@@ -493,7 +493,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Reset password error:', error);
-      
+
       if (error.message === 'Invalid or expired reset token') {
         return res.status(400).json({
           success: false,
@@ -513,9 +513,9 @@ class AuthController {
       if (req.user && req.user.id) {
         await authService.logout(req.user.id);
       }
-      
+
       res.clearCookie('refreshToken');
-      
+
       res.json({
         success: true,
         message: 'Logged out successfully'
@@ -535,7 +535,7 @@ class AuthController {
       if (!token) {
         return res.status(400).json({ success: false, message: 'Token is required' });
       }
-      
+
       await authService.verifyEmail(token);
       res.json({ success: true, message: 'Email verified successfully' });
     } catch (error) {
