@@ -32,6 +32,9 @@ const ceremonyEventRoutes = require('./routes/ceremonyEvents.js');
 require('./services/telegramBot.js');
 require('./services/otpTelegramBot.js');
 
+// Initialize Cron Jobs
+require('./services/cronJobs.js').startCronJobs();
+
 const app = express();
 app.set('trust proxy', 1);
 const httpServer = http.createServer(app);
