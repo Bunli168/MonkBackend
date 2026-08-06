@@ -245,15 +245,15 @@ const authService = {
     // Generate new tokens for the current session to keep them logged in
     const newAccessToken = generateAccessToken({ userId: user.id, email: user.email });
     const newRefreshToken = generateRefreshToken({ userId: user.id });
-    
+
     await RefreshToken.create({
       token: newRefreshToken,
       user_id: user.id,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
       user: formatUserData(user)
