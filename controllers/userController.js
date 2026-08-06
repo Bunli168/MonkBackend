@@ -325,18 +325,29 @@ const userController = {
       }
       // -------------------------------------------------
 
-      // Prevent unauthorized tampering of sensitive security fields
-      if (!isSuperAdmin) {
-        delete req.body.role_id;
-        delete req.body.is_verified;
-        delete req.body.status;
+      // Prevent unauthorized tampering of sensitive security fields via Mass Assignment
+      const allowedFields = [
+        'email', 
+        'phone', 
+        'address', 
+        'is_active', 
+        'totp_enabled', 
+        'telegram_username', 
+        'otp_telegram_username'
+      ];
+      
+      if (isSuperAdmin) {
+        allowedFields.push('role_id', 'is_verified', 'status');
       }
-      delete req.body.password;
-      delete req.body.verification_token;
-      delete req.body.totp_secret;
-      delete req.body.telegram_chat_id;
 
-      await user.update(req.body);
+      const updateData = {};
+      allowedFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      });
+
+      await user.update(updateData);
       res.status(200).json({ success: true, message: 'User updated successfully', data: user });
     } catch (error) {
       res.status(400).json({ success: false, message: error.message });
