@@ -8,10 +8,12 @@ async function initializeDatabase() {
 
     // 1. Create Roles
     const rolesData = [
-      { id: 1, name: 'super_admin', description: 'System Administrator' },
-      { id: 2, name: 'admin', description: 'Administrator' },
-      { id: 3, name: 'mekudi', description: 'Mekudi Teacher' },
-      { id: 4, name: 'monk', description: 'Monk' }
+      { id: 1, name: 'SuperAdmin', description: 'System Administrator' },
+      { id: 2, name: 'Admin', description: 'Administrator' },
+      { id: 3, name: 'Monk', description: 'Monk' },
+      { id: 4, name: 'Student', description: 'Student' },
+      { id: 5, name: 'AttendanceTaker', description: 'Attendance Taker' },
+      { id: 7, name: 'Bhikkhu', description: 'Bhikkhu (Fully Ordained Monk)' }
     ];
 
     for (const roleData of rolesData) {

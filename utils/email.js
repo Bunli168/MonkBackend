@@ -102,7 +102,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 };
 
 const sendWelcomeEmail = async (toEmail, generatedEmail, defaultPassword, fullName, verificationToken) => {
-  const verifyUrl = verificationToken ? `${process.env.CORS_ORIGIN || 'http://localhost:5174'}/verify-email?token=${verificationToken}` : null;
+  const verifyUrl = verificationToken ? `${process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5174'}/verify-email?token=${verificationToken}` : null;
 
   if (!process.env.SMTP_HOST) {
     if (verificationToken) {}
@@ -213,7 +213,7 @@ const sendVerifiedPasswordEmail = async (toEmail, generatedEmail, defaultPasswor
             </div>
             
             <div style="text-align: center; margin: 32px 0;">
-              <a href="${process.env.CORS_ORIGIN || 'http://localhost:5174'}/login" style="display: inline-block; background: #0F172A; color: #FFFFFF; font-weight: 600; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
+              <a href="${process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5174'}/login" style="display: inline-block; background: #0F172A; color: #FFFFFF; font-weight: 600; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2);">
                 ចូលប្រព័ន្ធ (Login)
               </a>
             </div>

@@ -19,37 +19,37 @@ for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
     if (line.startsWith("INSERT INTO `provinces` VALUES (")) {
-        const match = line.match(/\((\d+),\s*'[^']*',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)'/);
+        const match = line.match(/\((\d+),\s*'(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)'/);
         if (match) {
             const [, id, code, kh_name, en_name] = match;
             provinceIdToCode[id] = code;
-            output.write(`INSERT INTO \`provinces\` (\`id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${kh_name.replace(/'/g, "''")}', '${en_name.replace(/'/g, "''")}', NOW(), NOW());\n`);
+            output.write(`INSERT INTO \`provinces\` (\`id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${kh_name.replace(/'/g, "''").replace(/\\/g, "")}', '${en_name.replace(/'/g, "''").replace(/\\/g, "")}', NOW(), NOW());\n`);
         }
     }
     else if (line.startsWith("INSERT INTO `districts` VALUES (")) {
-        const match = line.match(/\((\d+),\s*'[^']*',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)/);
+        const match = line.match(/\((\d+),\s*'(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*(\d+)/);
         if (match) {
             const [, id, code, kh_name, en_name, prov_id] = match;
             districtIdToCode[id] = code;
             const pCode = provinceIdToCode[prov_id];
-            output.write(`INSERT INTO \`districts\` (\`id\`, \`province_id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${pCode}', '${kh_name.replace(/'/g, "''")}', '${en_name.replace(/'/g, "''")}', NOW(), NOW());\n`);
+            output.write(`INSERT INTO \`districts\` (\`id\`, \`province_id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${pCode}', '${kh_name.replace(/'/g, "''").replace(/\\/g, "")}', '${en_name.replace(/'/g, "''").replace(/\\/g, "")}', NOW(), NOW());\n`);
         }
     }
     else if (line.startsWith("INSERT INTO `communes` VALUES (")) {
-        const match = line.match(/\((\d+),\s*'[^']*',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)/);
+        const match = line.match(/\((\d+),\s*'(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*\d+,\s*(\d+)/);
         if (match) {
             const [, id, code, kh_name, en_name, dist_id] = match;
             communeIdToCode[id] = code;
             const dCode = districtIdToCode[dist_id];
-            output.write(`INSERT INTO \`communes\` (\`id\`, \`district_id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${dCode}', '${kh_name.replace(/'/g, "''")}', '${en_name.replace(/'/g, "''")}', NOW(), NOW());\n`);
+            output.write(`INSERT INTO \`communes\` (\`id\`, \`district_id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${dCode}', '${kh_name.replace(/'/g, "''").replace(/\\/g, "")}', '${en_name.replace(/'/g, "''").replace(/\\/g, "")}', NOW(), NOW());\n`);
         }
     }
     else if (line.startsWith("INSERT INTO `villages` VALUES (")) {
-         const match = line.match(/\((\d+),\s*'[^']*',\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*(\d+)/);
+         const match = line.match(/\((\d+),\s*'(?:[^'\\]|\\.)*',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)',\s*\d+,\s*\d+,\s*(\d+)/);
          if (match) {
             const [, id, code, kh_name, en_name, com_id] = match;
             const cCode = communeIdToCode[com_id];
-            output.write(`INSERT INTO \`villages\` (\`id\`, \`commune_id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${cCode}', '${kh_name.replace(/'/g, "''")}', '${en_name.replace(/'/g, "''")}', NOW(), NOW());\n`);
+            output.write(`INSERT INTO \`villages\` (\`id\`, \`commune_id\`, \`name\`, \`name_en\`, \`createdAt\`, \`updatedAt\`) VALUES ('${code}', '${cCode}', '${kh_name.replace(/'/g, "''").replace(/\\/g, "")}', '${en_name.replace(/'/g, "''").replace(/\\/g, "")}', NOW(), NOW());\n`);
          }
     }
 }
