@@ -157,7 +157,61 @@ CREATE TABLE event_attendees (
     FOREIGN KEY (assigned_by) REFERENCES users (id) ON DELETE CASCADE
 );
 
+-- ៩. តារាងសារ (Messages - សម្រាប់ផ្ញើសារទូទៅ ឬឯកជន)
+CREATE TABLE messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sender_id INT NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    is_broadcast BOOLEAN DEFAULT FALSE, -- TRUE បើផ្ញើទៅគ្រប់មេកុដិ
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE
+);
 
+-- ១០. តារាងអ្នកទទួលសារ (Message Recipients - សម្រាប់សារឯកជន ឬបញ្ជាក់ការអាន)
+CREATE TABLE message_recipients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    message_id INT NOT NULL,
+    receiver_id INT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMP NULL,
+    FOREIGN KEY (message_id) REFERENCES messages (id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- ១១. តារាងរបាយការណ៍ (Reports - មេកុដិរាយការណ៍ទៅចៅអធិការ)
+CREATE TABLE reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    kut_id INT NOT NULL,
+    reported_by INT NOT NULL, -- Admin (មេកុដិ)
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    status ENUM(
+        'submitted',
+        'reviewed',
+        'resolved'
+    ) DEFAULT 'submitted',
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (kut_id) REFERENCES kuts (id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_by) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- ១២. តារាងមាតិកាសាធារណៈ (Public Portals - វីដេអូធម៌ និងរូបភាព)
+CREATE TABLE public_contents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content_type ENUM(
+        'video',
+        'photo',
+        'announcement'
+    ) NOT NULL,
+    media_url VARCHAR(255), -- URL វីដេអូ (ឧ. YouTube) ឬ Path រូបភាព
+    description TEXT,
+    published_by INT NOT NULL, -- SuperAdmin (ចៅអធិការ)
+    is_published BOOLEAN DEFAULT TRUE,
+    published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (published_by) REFERENCES users (id) ON DELETE CASCADE
+);
 -- ៥.៥. តារាងវត្តមាន (Attendances - គ្រប់គ្រងវត្តមានព្រះសង្ឃ និងនិស្សិត)
 CREATE TABLE IF NOT EXISTS attendances (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -545,7 +599,154 @@ VALUES (1, 3, 1, 'present'),
     (3, 4, 2, 'excused'),
     (4, 5, 1, 'pending');
 
+-- ៩. messages  (sender_id → users)
+INSERT INTO
+    messages (
+        sender_id,
+        subject,
+        body,
+        is_broadcast
+    )
+VALUES (
+        1,
+        'សូមស្វាគមន៍',
+        'សូមស្វាគមន៍មកកាន់ប្រព័ន្ធគ្រប់គ្រងវត្ត',
+        TRUE
+    ),
+    (
+        1,
+        'ការជូនដំណឹងពិធី',
+        'ពិធីបុណ្យភ្ជុំបិណ្ឌ នឹងប្រព្រឹត្តទៅ ២៥ កញ្ញា',
+        FALSE
+    ),
+    (
+        2,
+        'របាយការណ៍ប្រចាំខែ',
+        'សូមមើលរបាយការណ៍ប្រចាំខែ',
+        FALSE
+    ),
+    (
+        3,
+        'សំណួរអំពីកម្មវិធី',
+        'តើការបណ្ដុះបណ្ដាលនៅថ្ងៃណា?',
+        FALSE
+    ),
+    (
+        1,
+        'ប្រកាសសៀវភៅវិន័យ',
+        'ប្រកាសសៀវភៅវិន័យប្រចាំឆ្នាំ ២០២៦',
+        TRUE
+    );
 
+-- ១០. message_recipients  (message_id → messages, receiver_id → users)
+INSERT INTO
+    message_recipients (
+        message_id,
+        receiver_id,
+        is_read,
+        read_at
+    )
+VALUES (1, 2, TRUE, NOW()),
+    (1, 3, FALSE, NULL),
+    (2, 3, TRUE, NOW()),
+    (3, 1, TRUE, NOW()),
+    (4, 2, FALSE, NULL);
+
+-- ១១. reports  (kut_id → kuts, reported_by → users)
+INSERT INTO
+    reports (
+        kut_id,
+        reported_by,
+        title,
+        content,
+        status
+    )
+VALUES (
+        1,
+        2,
+        'របាយការណ៍ខែតុលា',
+        'ព្រះសង្ឃទាំង ១០ អង្គ ចូលរួមយ៉ាងសកម្ម',
+        'submitted'
+    ),
+    (
+        2,
+        2,
+        'របាយការណ៍ខែវិច្ឆិកា',
+        'ការអភិវឌ្ឍន៍ធម៌ជំហានល្អ',
+        'reviewed'
+    ),
+    (
+        1,
+        2,
+        'របាយការណ៍ខែធ្នូ',
+        'ប្រព័ន្ធការអប់រំព្រះធម៌ដំណើរការប្រក្រតី',
+        'resolved'
+    ),
+    (
+        3,
+        2,
+        'របាយការណ៍ខែមករា',
+        'និស្សិតជំទង់ចូលរួមសិក្ខាសាលា',
+        'submitted'
+    ),
+    (
+        4,
+        2,
+        'របាយការណ៍ខែកុម្ភៈ',
+        'ពិធីបំពេញតម្រូវការផ្នែកសីលធម៌',
+        'submitted'
+    );
+
+-- ១២. public_contents  (published_by → users)
+INSERT INTO
+    public_contents (
+        title,
+        content_type,
+        media_url,
+        description,
+        published_by,
+        is_published
+    )
+VALUES (
+        'ធម្មទេសនា — ព្រះត្រៃបិដក',
+        'video',
+        'https://youtube.com/watch?v=abc123',
+        'ការបង្រៀនធម៌ស៊ីជម្រៅ',
+        1,
+        TRUE
+    ),
+    (
+        'រូបភាពពិធីភ្ជាប់សីល',
+        'photo',
+        'uploads/media/sil_ceremony.jpg',
+        'រូបភាពពីពិធីភ្ជាប់សីល ២០២៦',
+        1,
+        TRUE
+    ),
+    (
+        'ប្រកាសសំខាន់ — ២០២៦',
+        'announcement',
+        NULL,
+        'ការប្រកាសផ្លូវការ',
+        1,
+        TRUE
+    ),
+    (
+        'ធម្មទេសនា — ហ្វូមមន',
+        'video',
+        'https://youtube.com/watch?v=def456',
+        'ព្រះបន្ទូលបញ្ជ្រាបចិត្ត',
+        1,
+        TRUE
+    ),
+    (
+        'កម្រងរូបភាពពិធីបុណ្យ',
+        'photo',
+        'uploads/media/gallery_2026.jpg',
+        'ការប្រជុំប្រចាំឆ្នាំ ២០២៦',
+        1,
+        TRUE
+    );
 -- ៨.៥. attendances (user_id → users, kut_id → kuts)
 INSERT INTO
     attendances (

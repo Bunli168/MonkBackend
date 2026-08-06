@@ -155,18 +155,15 @@ exports.createRequest = async (req, res) => {
                 }
 
                 if (targetAdmins.length === 0) {
-                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify available Admins/Takers
+                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify available Admins/Takers/SuperAdmins
                     const fallbackAdmins = await User.findAll({
                         where: {
-                            role_id: { [Op.in]: [2, 5] },
+                            role_id: { [Op.in]: [1, 2, 5] },
                             telegram_chat_id: { [Op.not]: null }
                         }
                     });
                     targetAdmins.push(...fallbackAdmins);
                 }
-
-                // Ensure Super Admins never receive the initial creation notification directly
-                targetAdmins = targetAdmins.filter(a => a.role_id !== 1);
 
                 if (targetAdmins.length > 0) {
                     const message = `🔔 <b>New Leave Request</b>\n\n<b>Monk:</b> ${monkName}\n<b>Kuti:</b> ${kutIdStr}\n<b>Mekudi:</b> ${mekudiNameStr}\n<b>From:</b> ${diffDays} day(s)\n<b>Reason:</b> ${reason}`;
