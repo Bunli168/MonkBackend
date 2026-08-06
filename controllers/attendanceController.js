@@ -23,8 +23,8 @@ const attendanceController = {
       }
       
       // Role-based access control for fetching attendances
-      const userRole = req.user.Role ? req.user.Role.name : null;
-      const isAdminOrTaker = ['SuperAdmin', 'Admin', 'AttendanceTaker', 'Mekudi'].includes(userRole);
+      const userRole = req.user.Role ? req.user.Role.name.replace(/\s+/g, '').toUpperCase() : null;
+      const isAdminOrTaker = ['SUPERADMIN', 'ADMIN', 'ATTENDANCETAKER', 'MEKUDI'].includes(userRole);
       
       if (!isAdminOrTaker) {
         // Regular users can ONLY see their own attendance

@@ -324,7 +324,7 @@ exports.getAllRequests = async (req, res) => {
             const { Op } = require('sequelize');
             if (status === 'pending') {
                 const role = req.user?.Role?.name || req.user?.role || '';
-                const uRole = role.toUpperCase();
+                const uRole = role.replace(/\s+/g, '').toUpperCase();
                 if (uRole === 'SUPERADMIN') {
                     whereClause.status = 'pending_superadmin';
                 } else if (['ADMIN', 'MEKUDI', 'ATTENDANCETAKER'].includes(uRole)) {
@@ -334,7 +334,7 @@ exports.getAllRequests = async (req, res) => {
                 }
             } else if (status === 'approved') {
                 const role = req.user?.Role?.name || req.user?.role || '';
-                const uRole = role.toUpperCase();
+                const uRole = role.replace(/\s+/g, '').toUpperCase();
                 if (['ADMIN', 'MEKUDI', 'ATTENDANCETAKER'].includes(uRole)) {
                     whereClause.status = { [Op.or]: ['approved', 'pending_superadmin'] };
                 } else {
@@ -346,7 +346,7 @@ exports.getAllRequests = async (req, res) => {
         } else {
             // If no status is specified (e.g., "All Requests" tab), Super Admins should not see requests waiting for Admin approval
             const role = req.user?.Role?.name || req.user?.role || '';
-            if (role.toUpperCase() === 'SUPERADMIN') {
+            if (role.replace(/\s+/g, '').toUpperCase() === 'SUPERADMIN') {
                 const { Op } = require('sequelize');
                 whereClause.status = { [Op.notIn]: ['pending', 'pending_mekudi'] };
             }
@@ -359,10 +359,10 @@ exports.getAllRequests = async (req, res) => {
         };
 
         const role = req.user?.Role?.name || req.user?.role || '';
-        if (['MEKUDI', 'ADMIN'].includes(role.toUpperCase()) && req.user.UserProfile?.kut_id) {
+        if (['MEKUDI', 'ADMIN'].includes(role.replace(/\s+/g, '').toUpperCase()) && req.user.UserProfile?.kut_id) {
             includeUser.required = true;
             includeUser.include[0].where = { kut_id: req.user.UserProfile.kut_id };
-        } else if (role.toUpperCase() === 'ATTENDANCETAKER') {
+        } else if (role.replace(/\s+/g, '').toUpperCase() === 'ATTENDANCETAKER') {
             const { SeatingRow } = require('../models');
             const { Op } = require('sequelize');
             const myRows = await SeatingRow.findAll({ where: { assigned_taker_id: req.user.id } });
@@ -412,7 +412,7 @@ exports.updateStatus = async (req, res) => {
         const actorRole = req.user?.Role?.name || req.user?.role || '';
         
         // Scope check for Admin/Mekudi
-        if (['ADMIN', 'MEKUDI'].includes(actorRole.toUpperCase()) && req.user.UserProfile?.kut_id) {
+        if (['ADMIN', 'MEKUDI'].includes(actorRole.replace(/\s+/g, '').toUpperCase()) && req.user.UserProfile?.kut_id) {
             const monkProfile = await UserProfile.findOne({ where: { user_id: leaveRequest.user_id } });
             if (monkProfile && monkProfile.kut_id !== req.user.UserProfile.kut_id) {
                 return res.status(403).json({ message: 'You can only approve leave requests for members of your own Kudi' });
