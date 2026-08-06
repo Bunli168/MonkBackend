@@ -108,19 +108,22 @@ exports.createRequest = async (req, res) => {
             if (telegramBot) {
                 const { Op } = require('sequelize');
                 
-                const monkProfile = await UserProfile.findOne({ where: { user_id: req.user.id } });
+                const monkProfile = await UserProfile.findOne({ 
+                    where: { user_id: req.user.id },
+                    include: [{ model: require('../models').Kut }]
+                });
                 const monkName = monkProfile ? `${monkProfile.first_name_kh} ${monkProfile.last_name_kh}` : `User ID ${req.user.id}`;
                 
                 const sDate = new Date(start_date);
                 const eDate = new Date(end_date);
                 const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
                 
-                const kutIdStr = monkProfile && monkProfile.kut_id ? monkProfile.kut_id : 'N/A';
+                let kutIdStr = monkProfile && monkProfile.Kut ? monkProfile.Kut.name : (monkProfile && monkProfile.kut_id ? monkProfile.kut_id : 'N/A');
                 let mekudiNameStr = 'N/A';
                 
                 let targetAdmins = [];
 
-                if (kutIdStr !== 'N/A') {
+                if (monkProfile && monkProfile.kut_id) {
                     // Find the Mekudi(s) specifically assigned to this Kuti
                     const targetMekudis = await User.findAll({
                         where: { 
@@ -129,7 +132,7 @@ exports.createRequest = async (req, res) => {
                         },
                         include: [{ 
                             model: UserProfile, 
-                            where: { kut_id: kutIdStr } 
+                            where: { kut_id: monkProfile.kut_id } 
                         }]
                     });
                     
@@ -355,7 +358,11 @@ exports.getAllRequests = async (req, res) => {
         const includeUser = {
             model: User,
             attributes: ['id'],
-            include: [{ model: UserProfile, attributes: ['first_name_kh', 'last_name_kh', 'kut_id', 'avatar_url'] }]
+            include: [{ 
+                model: UserProfile, 
+                attributes: ['first_name_kh', 'last_name_kh', 'kut_id', 'avatar_url'],
+                include: [{ model: require('../models').Kut, attributes: ['name'] }]
+            }]
         };
 
         const role = req.user?.Role?.name || req.user?.role || '';
@@ -541,11 +548,14 @@ exports.updateStatus = async (req, res) => {
                         console.error('Superadmin socket emit error:', e);
                     }
 
-                    const { Op } = require('sequelize');
+                    // Super Admin Notification logic...
                     const superAdmins = await User.findAll({ where: { role_id: 1, telegram_chat_id: { [Op.not]: null } } });
-                    const monkProfile = await UserProfile.findOne({ where: { user_id: leaveRequest.user_id } });
+                    const monkProfile = await UserProfile.findOne({ 
+                        where: { user_id: leaveRequest.user_id },
+                        include: [{ model: require('../models').Kut }]
+                    });
                     const monkNameStr = monkProfile ? `${monkProfile.first_name_kh} ${monkProfile.last_name_kh}` : `User ID ${leaveRequest.user_id}`;
-                    const kutIdStr = monkProfile && monkProfile.kut_id ? monkProfile.kut_id : 'N/A';
+                    const kutIdStr = monkProfile && monkProfile.Kut ? monkProfile.Kut.name : (monkProfile && monkProfile.kut_id ? monkProfile.kut_id : 'N/A');
                     
                     const mekudiProfile = await UserProfile.findOne({ where: { user_id: req.user.id } });
                     const mekudiNameStr = mekudiProfile ? `${mekudiProfile.first_name_kh} ${mekudiProfile.last_name_kh}` : `User ID ${req.user.id}`;
