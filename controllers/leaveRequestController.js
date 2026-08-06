@@ -1,4 +1,5 @@
 const { LeaveRequest, User, UserProfile, Attendance, RetreatEvent } = require('../models');
+const { Op } = require('sequelize');
 const { transitionLeaveRequest } = require('../utils/leaveRequestWorkflow');
 const telegramBot = require('../services/telegramBot');
 
@@ -146,16 +147,7 @@ exports.createRequest = async (req, res) => {
 
                 // Removed Row Taker notification logic as Attendance Takers do not approve leave requests
 
-                if (targetAdmins.length === 0) {
-                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify only SuperAdmins
-                    const fallbackAdmins = await User.findAll({
-                        where: {
-                            role_id: 1, // Only SuperAdmin
-                            telegram_chat_id: { [Op.not]: null }
-                        }
-                    });
-                    targetAdmins.push(...fallbackAdmins);
-                }
+                // Removed fallback to SuperAdmin. SuperAdmins will only be notified AFTER Mekudi approves.
 
                 if (targetAdmins.length > 0) {
                     const message = `🔔 <b>New Leave Request</b>\n\n<b>Monk:</b> ${monkName}\n<b>Kuti:</b> ${kutIdStr}\n<b>Mekudi:</b> ${mekudiNameStr}\n<b>From:</b> ${diffDays} day(s)\n<b>Reason:</b> ${reason}`;
