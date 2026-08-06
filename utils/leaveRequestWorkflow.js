@@ -24,7 +24,7 @@ function transitionLeaveRequest({ currentStatus, requestedAction, actorRole }) {
   }
 
   if (currentStatus === 'pending' || currentStatus === 'pending_mekudi') {
-    if (normalizedRole === 'ADMIN' || normalizedRole === 'MEKUDI' || normalizedRole === 'ATTENDANCETAKER') {
+    if (normalizedRole === 'ADMIN' || normalizedRole === 'MEKUDI') {
       return {
         allowed: true,
         nextStatus: 'pending_superadmin',

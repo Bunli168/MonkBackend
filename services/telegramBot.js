@@ -169,8 +169,8 @@ if (token) {
                 include: [{ model: Role, as: 'Role' }]
             });
 
-            if (!adminUser || ![1, 2, 3, 4].includes(adminUser.role_id)) {
-                return bot.answerCallbackQuery(query.id, { text: 'Unauthorized. Only Admins can perform this action.', show_alert: true }).catch(() => {});
+            if (!adminUser || !adminUser.Role) {
+                return bot.answerCallbackQuery(query.id, { text: 'Unauthorized. User or Role not found.', show_alert: true }).catch(() => {});
             }
 
             const [action, requestId] = data.split('_');
@@ -268,9 +268,17 @@ if (token) {
                 const superAdmins = await User.findAll({ where: { role_id: 1, telegram_chat_id: { [require('sequelize').Op.not]: null } } });
                 const monkProfile = await UserProfile.findOne({ where: { user_id: leaveRequest.user_id } });
                 const monkNameStr = monkProfile ? `${monkProfile.first_name_kh} ${monkProfile.last_name_kh}` : `User ID ${leaveRequest.user_id}`;
+                const fs = require('fs');
+                const path = require('path');
+                let photoPath = null;
+                if (leaveRequest.image_url) {
+                    photoPath = path.join(__dirname, '..', leaveRequest.image_url);
+                    if (!fs.existsSync(photoPath)) photoPath = null;
+                }
+
                 for (const sa of superAdmins) {
                     const message = `🔔 *Leave Request Forwarded*\n\n*Monk:* ${monkNameStr}\n*From:* ${leaveRequest.start_date}\n*To:* ${leaveRequest.end_date}\n*Reason:* ${leaveRequest.reason}`;
-                    bot.sendMessage(sa.telegram_chat_id, message, {
+                    const options = {
                         parse_mode: 'Markdown',
                         reply_markup: {
                             inline_keyboard: [
@@ -280,7 +288,13 @@ if (token) {
                                 ]
                             ]
                         }
-                    }).catch(() => {});
+                    };
+                    
+                    if (photoPath) {
+                        bot.sendPhoto(sa.telegram_chat_id, photoPath, { ...options, caption: message }).catch(() => {});
+                    } else {
+                        bot.sendMessage(sa.telegram_chat_id, message, options).catch(() => {});
+                    }
                 }
             }
 

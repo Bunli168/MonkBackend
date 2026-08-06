@@ -124,10 +124,10 @@ exports.createRequest = async (req, res) => {
                 let targetAdmins = [];
 
                 if (monkProfile && monkProfile.kut_id) {
-                    // Find the Mekudi(s) specifically assigned to this Kuti
+                    // Find the Admins(2), Mekudis(3), and Attendance Takers(5) assigned to this Kuti
                     const targetMekudis = await User.findAll({
                         where: { 
-                            role_id: 2, 
+                            role_id: { [Op.in]: [2, 3] }, 
                             telegram_chat_id: { [Op.not]: null } 
                         },
                         include: [{ 
@@ -144,24 +144,13 @@ exports.createRequest = async (req, res) => {
                     }
                 }
 
-                if (monkProfile && monkProfile.seating_row_id) {
-                    const { SeatingRow } = require('../models');
-                    const monkRow = await SeatingRow.findByPk(monkProfile.seating_row_id);
-                    if (monkRow && monkRow.assigned_taker_id) {
-                        const taker = await User.findOne({
-                            where: { id: monkRow.assigned_taker_id, telegram_chat_id: { [Op.not]: null } }
-                        });
-                        if (taker && !targetAdmins.find(a => a.id === taker.id)) {
-                            targetAdmins.push(taker);
-                        }
-                    }
-                }
+                // Removed Row Taker notification logic as Attendance Takers do not approve leave requests
 
                 if (targetAdmins.length === 0) {
-                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify available Admins/Takers/SuperAdmins
+                    // Fallback: if no specific Kuti Mekudi or Row Taker is assigned, notify only SuperAdmins
                     const fallbackAdmins = await User.findAll({
                         where: {
-                            role_id: { [Op.in]: [1, 2, 5] },
+                            role_id: 1, // Only SuperAdmin
                             telegram_chat_id: { [Op.not]: null }
                         }
                     });
