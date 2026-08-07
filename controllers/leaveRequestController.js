@@ -13,16 +13,16 @@ exports.createRequest = async (req, res) => {
         }
 
         const { Op } = require('sequelize');
-        // Check for overlapping leave requests
+        // Check for overlapping leave requests in the current event
+        const activeYear = await RetreatEvent.findOne({ where: { is_active: true } });
         const overlappingRequest = await LeaveRequest.findOne({
             where: {
                 user_id: req.user.id,
                 status: { [Op.notIn]: ['rejected'] },
-                [Op.or]: [
-                    {
-                        start_date: { [Op.lte]: end_date },
-                        end_date: { [Op.gte]: start_date }
-                    }
+                retreat_event_id: activeYear ? activeYear.id : null,
+                [Op.and]: [
+                    { start_date: { [Op.lte]: end_date } },
+                    { end_date: { [Op.gte]: start_date } }
                 ]
             }
         });
@@ -31,7 +31,7 @@ exports.createRequest = async (req, res) => {
             return res.status(400).json({ message: 'You already have a leave request during this period.' });
         }
 
-        const activeYear = await RetreatEvent.findOne({ where: { is_active: true } });
+
 
         let image_url = null;
         if (req.file) {
@@ -235,18 +235,17 @@ exports.updateRequest = async (req, res) => {
             return res.status(400).json({ message: `Cannot edit a request that is already ${leaveRequest.status}` });
         }
 
-        // Check for overlapping leave requests excluding this one
+        // Check for overlapping leave requests excluding this one within the same event
         const { Op } = require('sequelize');
         const overlappingRequest = await LeaveRequest.findOne({
             where: {
                 id: { [Op.ne]: id },
                 user_id: req.user.id,
                 status: { [Op.notIn]: ['rejected'] },
-                [Op.or]: [
-                    {
-                        start_date: { [Op.lte]: end_date },
-                        end_date: { [Op.gte]: start_date }
-                    }
+                retreat_event_id: leaveRequest.retreat_event_id,
+                [Op.and]: [
+                    { start_date: { [Op.lte]: end_date } },
+                    { end_date: { [Op.gte]: start_date } }
                 ]
             }
         });
