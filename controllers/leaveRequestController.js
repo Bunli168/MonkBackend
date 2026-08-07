@@ -125,7 +125,8 @@ exports.createRequest = async (req, res) => {
                 let targetAdmins = [];
 
                 if (monkProfile && monkProfile.kut_id) {
-                    // Find the Admins(2), Mekudis(3), and Attendance Takers(5) assigned to this Kuti
+                    // Find the Admins(2) and Mekudis(3) assigned to this Kuti who have linked Telegram
+                    // ✅ Added role_id 3 (Mekudi/Kudi Admin) — they are the same person in a kudi
                     const targetMekudis = await User.findAll({
                         where: { 
                             role_id: { [Op.in]: [2, 3] }, 
@@ -145,12 +146,22 @@ exports.createRequest = async (req, res) => {
                     }
                 }
 
-                // Removed Row Taker notification logic as Attendance Takers do not approve leave requests
-
-                // Removed fallback to SuperAdmin. SuperAdmins will only be notified AFTER Mekudi approves.
-
                 if (targetAdmins.length > 0) {
-                    const message = `🔔 <b>New Leave Request</b>\n\n<b>Monk:</b> ${monkName}\n<b>Kuti:</b> ${kutIdStr}\n<b>Mekudi:</b> ${mekudiNameStr}\n<b>From:</b> ${diffDays} day(s)\n<b>Reason:</b> ${reason}`;
+                    // ✅ Improved message: 1, 2, 3... days summary for easy reading
+                    const phoneStr = monkProfile && monkProfile.phone_number ? monkProfile.phone_number : 'N/A';
+                    const dayLabel = diffDays === 1 ? '1 ថ្ងៃ (1 day)' : `${diffDays} ថ្ងៃ (${diffDays} days)`;
+                    
+                    const message = 
+                        `🔔 <b>សំណើរសុំច្បាប់ថ្មី (New Leave Request)</b>\n\n` +
+                        `<b>ព្រះ/គ្រូ:</b> ${monkName}\n` +
+                        `<b>ក្រុដិ (Kudi):</b> ${kutIdStr}\n` +
+                        `<b>Mekudi:</b> ${mekudiNameStr}\n` +
+                        `<b>ទូរស័ព្ទ:</b> ${phoneStr}\n\n` +
+                        `<b>ចាប់ពី (Start):</b> ${start_date}\n` +
+                        `<b>រហូតដល់ (End):</b> ${end_date}\n` +
+                        `<b>ចំនួនថ្ងៃសរុប (Total):</b> <b>${dayLabel}</b>\n\n` +
+                        `<b>មូលហេតុ (Reason):</b>\n${reason}`;
+
                     
                     const fs = require('fs');
                     const path = require('path');

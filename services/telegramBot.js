@@ -30,14 +30,15 @@ if (token) {
                 return false;
             }
 
-            // Verify role: only Super Admin and Admin can link
+            // Verify role: SuperAdmin, Admin, and Mekudi (Kudi Admin) can link
             if (!user.Role && Role) {
                 user = await User.findByPk(user.id, { include: [Role] });
             }
             const roleName = user.Role ? user.Role.name.toLowerCase() : '';
-            const isAdminRole = user.role_id === 1 || user.role_id === 2 || ['admin', 'super_admin'].includes(roleName);
+            // ✅ role_id 1=SuperAdmin, 2=Admin, 3=Mekudi (Kudi head who approves leave requests)
+            const isAdminRole = [1, 2, 3].includes(user.role_id) || ['admin', 'super_admin', 'superadmin', 'mekudi'].includes(roleName);
             if (!isAdminRole) {
-                bot.sendMessage(chatId, `⛔ *សិទ្ធិមិនគ្រប់គ្រាន់ (Access Denied)*\n\nសូមអភ័យទោស! Bot នេះត្រូវបានកំណត់សម្រាប់តែ **Admin** និង **Super Admin** ប៉ុណ្ណោះក្នុងការភ្ជាប់។ គណនីរបស់អ្នកមិនមានសិទ្ធិទេ។`, { parse_mode: 'Markdown' });
+                bot.sendMessage(chatId, `⛔ *សិទ្ធិមិនគ្រប់គ្រាន់ (Access Denied)*\n\nBot នេះត្រូវបានកំណត់សម្រាប់ **Admin**, **Mekudi (Kudi Admin)**, និង **Super Admin** ប៉ុណ្ណោះ។ គណនីរបស់អ្នកមិនមានសិទ្ធិទេ។`, { parse_mode: 'Markdown' });
                 return false;
             }
 
@@ -121,26 +122,29 @@ if (token) {
         const existingUser = await User.findOne({ where: { telegram_chat_id: chatId.toString() }, include: [Role] });
         if (existingUser) {
             const roleName = existingUser.Role ? existingUser.Role.name.toLowerCase() : '';
-            const isAdminRole = existingUser.role_id === 1 || existingUser.role_id === 2 || ['admin', 'super_admin'].includes(roleName);
+            // ✅ Include Mekudi in allowed roles
+            const isAdminRole = [1, 2, 3].includes(existingUser.role_id) || ['admin', 'super_admin', 'superadmin', 'mekudi'].includes(roleName);
             if (!isAdminRole) {
                 existingUser.telegram_chat_id = null;
                 existingUser.telegram_username = null;
                 await existingUser.save();
-                return bot.sendMessage(chatId, `⛔ *សិទ្ធិមិនគ្រប់គ្រាន់ (Access Denied)*\n\nសូមអភ័យទោស! Bot នេះត្រូវបានកំណត់សម្រាប់តែ **Admin** និង **Super Admin** ប៉ុណ្ណោះ។ គណនីរបស់អ្នកត្រូវបានផ្តាច់។`, { parse_mode: 'Markdown' });
+                return bot.sendMessage(chatId, `⛔ *សិទ្ធិមិនគ្រប់គ្រាន់ (Access Denied)*\n\nBot នេះសម្រាប់ **Admin**, **Mekudi**, និង **Super Admin** ប៉ុណ្ណោះ។ គណនីរបស់អ្នកត្រូវបានផ្តាច់។`, { parse_mode: 'Markdown' });
             }
             const userProfile = await UserProfile.findOne({ where: { user_id: existingUser.id } });
             const nameStr = userProfile ? `${userProfile.first_name_kh} ${userProfile.last_name_kh}` : existingUser.email;
             return bot.sendMessage(chatId, `✅ *គណនីរបស់អ្នកត្រូវបានភ្ជាប់រួចរាល់ហើយ! (Welcome Back!)*\n\n👤 *ឈ្មោះ៖* ${nameStr}\n📧 *អ៊ីមែល៖* ${existingUser.email}\n\nអ្នកនឹងទទួលបានសារជូនដំណឹងនៅទីនេះដោយស្វ័យប្រវត្តិ។`, { parse_mode: 'Markdown' });
         }
 
-        bot.sendMessage(chatId, 
-            `🙏 *សូមស្វាគមន៍មកកាន់ប្រព័ន្ធគ្រប់គ្រងវត្ត (Pagoda Management Bot - ច្បាប់)*\n\n` +
-            `ដើម្បីភ្ជាប់គណនី សូមចុចប៊ូតុង **"📱 ចុចទីនេះដើម្បីភ្ជាប់គណនីស្វ័យប្រវត្តិ"** នៅខាងក្រោម ឬវាយបញ្ចូល **លេខទូរស័ព្ទ** ឬ **អ៊ីមែល** របស់អ្នកដោយផ្ទាល់នៅទីនេះ!`, 
-            { 
+        bot.sendMessage(chatId,
+            `🙏 *សូមស្វាគមន៍! (Pagoda Management Bot — ច្បាប់)*\n\n` +
+            `Bot នេះសម្រាប់ **Admin**, **Mekudi (Kudi Admin)**, និង **Super Admin** ដើម្បីទទួល និងអនុម័ត/បដិសេធ ច្បាប់សុំច្បាប់ (Leave Request)\n\n` +
+            `ដើម្បីភ្ជាប់គណនី សូមចុចប៊ូតុង **"📱 ភ្ជាប់គណនីស្វ័យប្រវត្តិ"** នៅខាងក្រោម ឬវាយ **លេខទូរស័ព្ទ** ឬ **អ៊ីមែល** របស់អ្នក!\n\n` +
+            `📌 *Commands:*\n/pending — មើលសំណើរសុំច្បាប់កំពុងរង់ចាំ\n/start — ម៉ឺនុយដំបូង`,
+            {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     keyboard: [
-                        [{ text: "📱 ចុចទីនេះដើម្បីភ្ជាប់គណនីស្វ័យប្រវត្តិ", request_contact: true }]
+                        [{ text: "📱 ភ្ជាប់គណនីស្វ័យប្រវត្តិ", request_contact: true }]
                     ],
                     resize_keyboard: true,
                     one_time_keyboard: true
@@ -154,6 +158,82 @@ if (token) {
         const linked = await handleAutoLink(msg.chat.id, match[1], msg.from.username);
         if (!linked) {
             bot.sendMessage(msg.chat.id, `❌ រកមិនឃើញគណនីសម្រាប់ "${match[1]}" ទេ។ សូមត្រួតពិនិត្យលេខទូរស័ព្ទ ឬអ៊ីមែលរបស់អ្នកឡើងវិញ។`);
+        }
+    });
+
+    // /pending command — list pending leave requests for this admin's kudi
+    bot.onText(/\/pending/, async (msg) => {
+        const chatId = msg.chat.id;
+        try {
+            const adminUser = await User.findOne({
+                where: { telegram_chat_id: chatId.toString() },
+                include: [{ model: Role, as: 'Role' }, { model: UserProfile, as: 'UserProfile' }]
+            });
+
+            if (!adminUser) {
+                return bot.sendMessage(chatId, `❌ *គណនីមិនទាន់ភ្ជាប់ (Account not linked)*\nសូមវាយ /start ដើម្បីភ្ជាប់គណនី។`, { parse_mode: 'Markdown' });
+            }
+
+            const { Op } = require('sequelize');
+            let whereClause = { status: { [Op.in]: ['pending', 'pending_mekudi'] } };
+
+            // Scope to kudi if this admin/mekudi has a kut_id
+            const adminProfile = adminUser.UserProfile;
+            let kudName = 'All Kudis';
+            let includeClause = [
+                {
+                    model: User,
+                    as: 'User',
+                    attributes: ['id'],
+                    include: [{
+                        model: UserProfile,
+                        attributes: ['first_name_kh', 'last_name_kh', 'kut_id', 'phone_number']
+                    }]
+                }
+            ];
+
+            // If they are scoped to a kudi, only show their kudi's requests
+            if (adminProfile && adminProfile.kut_id && adminUser.role_id !== 1) {
+                const { Kut } = require('../models');
+                const kut = await Kut.findByPk(adminProfile.kut_id);
+                kudName = kut ? kut.name : `Kudi ${adminProfile.kut_id}`;
+                includeClause[0].where = {}; // will filter via the include
+                includeClause[0].required = true;
+                includeClause[0].include[0].where = { kut_id: adminProfile.kut_id };
+                includeClause[0].include[0].required = true;
+            } else if (adminUser.role_id === 1) {
+                // SuperAdmin sees pending_superadmin requests
+                whereClause = { status: 'pending_superadmin' };
+                kudName = 'All Kudis (SuperAdmin Queue)';
+            }
+
+            const { LeaveRequest } = require('../models');
+            const requests = await LeaveRequest.findAll({
+                where: whereClause,
+                include: includeClause,
+                order: [['created_at', 'ASC']],
+                limit: 10
+            });
+
+            if (requests.length === 0) {
+                return bot.sendMessage(chatId,
+                    `✅ *គ្មានសំណើរសុំច្បាប់ (No Pending Requests)*\n\nKudi: ${kudName}\n\nបច្ចុប្បន្នគ្មានសំណើរសុំច្បាប់ណាមួយទេ! 🎉`,
+                    { parse_mode: 'Markdown' }
+                );
+            }
+
+            let text = `📋 *សំណើរសុំច្បាប់ (Pending Requests)*\n*Kudi: ${kudName}*\n\n`;
+            for (const req of requests) {
+                const profile = req.User && req.User.UserProfile;
+                const name = profile ? `${profile.first_name_kh} ${profile.last_name_kh}` : `User #${req.user_id}`;
+                const days = Math.ceil(Math.abs(new Date(req.end_date) - new Date(req.start_date)) / (1000 * 60 * 60 * 24)) + 1;
+                text += `• *${name}* — ${req.start_date} to ${req.end_date} (${days}d)\n  Status: ${req.status}\n  ID: ${req.id}\n\n`;
+            }
+            text += `_ចុចប៊ូតុង Approve/Reject ក្នុងសារជូនដំណឹងដើម្បីធ្វើការ_`;
+
+            bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+        } catch (err) {
+            bot.sendMessage(chatId, `❌ មានបញ្ហាក្នុងការទាញទិន្នន័យ។ សូមព្យាយាមមើលម្ដងទៀត។`);
         }
     });
 
@@ -277,7 +357,12 @@ if (token) {
                 }
 
                 for (const sa of superAdmins) {
-                    const message = `🔔 *Leave Request Forwarded*\n\n*Monk:* ${monkNameStr}\n*From:* ${leaveRequest.start_date}\n*To:* ${leaveRequest.end_date}\n*Reason:* ${leaveRequest.reason}`;
+                    const sDate = new Date(leaveRequest.start_date);
+                    const eDate = new Date(leaveRequest.end_date);
+                    const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+                    const dayLabel = diffDays === 1 ? '1 day' : `${diffDays} days`;
+
+                    const message = `🔔 *Leave Request Forwarded*\n\n*Monk:* ${monkNameStr}\n*Start:* ${leaveRequest.start_date}\n*End:* ${leaveRequest.end_date}\n*Duration:* ${dayLabel}\n*Reason:* ${leaveRequest.reason}`;
                     const options = {
                         parse_mode: 'Markdown',
                         reply_markup: {
