@@ -494,21 +494,16 @@ const authService = {
       verification_token: null
     };
 
-    let generatedPassword = null;
-    if (user.role_id === 1) {
-      generatedPassword = require('crypto').randomBytes(4).toString('hex') + 'Aa@1';
-      const bcrypt = require('bcryptjs');
-      updateData.password = await bcrypt.hash(generatedPassword, 10);
-      updateData.must_change_password = true;
-    }
+    const generatedPassword = require('crypto').randomBytes(4).toString('hex') + 'Aa@1';
+    const bcrypt = require('bcryptjs');
+    updateData.password = await bcrypt.hash(generatedPassword, 10);
+    updateData.must_change_password = true;
 
     await user.update(updateData);
 
-    if (user.role_id === 1 && generatedPassword) {
-      const { sendVerifiedPasswordEmail } = require('../utils/email');
-      const fullName = user.UserProfile ? `${user.UserProfile.first_name_en} ${user.UserProfile.last_name_en}`.trim() : 'Super Admin';
-      await sendVerifiedPasswordEmail(user.email, user.email, generatedPassword, fullName);
-    }
+    const { sendVerifiedPasswordEmail } = require('../utils/email');
+    const fullName = user.UserProfile ? `${user.UserProfile.first_name_en} ${user.UserProfile.last_name_en}`.trim() : 'User';
+    await sendVerifiedPasswordEmail(user.email, user.email, generatedPassword, fullName);
 
     return { success: true };
   },
