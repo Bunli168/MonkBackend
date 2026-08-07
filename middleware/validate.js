@@ -25,8 +25,8 @@ const loginSchema = Joi.object({
     'string.email': 'Valid email is required',
     'any.required': 'Valid email is required'
   }),
-  password: Joi.string().min(6).required().messages({
-    'string.min': 'Password must be at least 6 characters',
+  password: Joi.string().min(8).required().messages({
+    'string.min': 'Password must be at least 8 characters',
     'any.required': 'Password is required',
     'string.empty': 'Password is required'
   })
@@ -90,6 +90,8 @@ const otpSchema = Joi.object({
 });
 
 const changePasswordSchema = Joi.object({
+  // ✅ Optional token field: used by body-based route (more secure than URL param)
+  token: Joi.string().optional().allow(''),
   newPassword: Joi.string().min(8).pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).required().messages({
     'string.min': 'Password must be at least 8 characters',
     'string.pattern.base': 'Password must contain uppercase, lowercase, and number',

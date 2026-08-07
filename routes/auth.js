@@ -21,6 +21,8 @@ router.post('/verify-otp', otpValidation, authController.verifyOtp);
 router.post('/resend-otp', authController.resendOtp);
 router.post('/refresh-token', authController.refreshToken);
 router.put('/change-default-password/:token', changePasswordValidation, authController.changePassword);
+// ✅ SECURITY FIX: New body-based route — token no longer leaks into URL/server logs
+router.put('/change-default-password', changePasswordValidation, authController.changePasswordFromBody);
 router.put('/change-password', authenticate, authController.updateMyPassword);
 router.get('/profile', authenticate, authController.getProfile);
 router.put('/profile', authenticate, authController.updateProfile);

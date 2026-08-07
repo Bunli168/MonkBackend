@@ -51,18 +51,28 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // ✅ Removed 'unsafe-inline' from scriptSrc — scripts must come from same origin only
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https:", "http:", "wss:", "ws:"],
-      fontSrc: ["'self'", "https:", "data:"],
+      // ✅ Restricted to known API and WebSocket origins only
+      connectSrc: [
+        "'self'",
+        "https://neakavorn.work.gd",
+        "wss://neakavorn.work.gd",
+        ...(process.env.NODE_ENV === 'development' ? ["http://localhost:3006", "ws://localhost:3006"] : [])
+      ],
+      imgSrc: ["'self'", "data:", "blob:", "https://neakavorn.work.gd"],
+      fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
     },
   },
-  crossOriginEmbedderPolicy: false, // Set to false if it breaks image loading from other domains
-  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin resources if needed for uploads/avatars
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // CORS configuration
@@ -71,10 +81,13 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting — general API
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.maxRequests,
+  // ✅ Reduced from 5000 (too permissive) — 200 req per 15 min per IP is generous for normal usage
+  max: Math.min(config.rateLimit.maxRequests, 200),
+  standardHeaders: true,
+  legacyHeaders: false,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
@@ -82,12 +95,17 @@ app.use('/api/', limiter);
 // Strict rate limiting for Auth routes to prevent brute-force
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Don't count successful logins against limit
   message: 'Too many authentication attempts, please try again after 15 minutes.'
 });
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/verify-otp', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
+// ✅ Added: resend-otp was missing from rate limiting
+app.use('/api/auth/resend-otp', authLimiter);
 
 const xss = require('xss-clean');
 
@@ -167,18 +185,3 @@ if (!process.env.VERCEL) {
 }
 
 module.exports = app;
-// nodemon restart trigger
-// another trigger
-// another trigger 2
-// another trigger 3
-// another trigger 4
-// another trigger 5
-// another trigger 6
-// another trigger 7
-// force restart
-// force restart 2
-// force restart 3
-// force restart 4
-// force restart 4
-// force restart 5
-// restart for CORS
