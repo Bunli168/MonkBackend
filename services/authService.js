@@ -494,20 +494,33 @@ const authService = {
       verification_token: null
     };
 
-    let generatedPassword = null;
-    if (user.role_id === 1) {
-      generatedPassword = require('crypto').randomBytes(4).toString('hex') + 'Aa@1';
-      const bcrypt = require('bcryptjs');
-      updateData.password = await bcrypt.hash(generatedPassword, 10);
-      updateData.must_change_password = true;
-    }
-
     await user.update(updateData);
 
-    if (user.role_id === 1 && generatedPassword) {
-      const { sendVerifiedPasswordEmail } = require('../utils/email');
-      const fullName = user.UserProfile ? `${user.UserProfile.first_name_en} ${user.UserProfile.last_name_en}`.trim() : 'Super Admin';
-      await sendVerifiedPasswordEmail(user.email, user.email, generatedPassword, fullName);
+    try {
+      const telegramBot = require('./telegramBot');
+      if (telegramBot) {
+        const { Op } = require('sequelize');
+        const superAdmins = await User.findAll({ 
+            where: { 
+                role_id: 1, 
+                telegram_chat_id: { [Op.not]: null } 
+            } 
+        });
+        
+        const firstName = user.UserProfile?.first_name_kh || user.UserProfile?.first_name_en || '';
+        const lastName = user.UserProfile?.last_name_kh || user.UserProfile?.last_name_en || '';
+        const fullName = `${firstName} ${lastName}`.trim() || `User ID ${user.id}`;
+        
+        const message = `🎉 <b>New User Verified</b>\n\nA user has successfully verified their email address.\n\n<b>Name:</b> ${fullName}\n<b>Email:</b> ${user.email}`;
+
+        for (const sa of superAdmins) {
+            telegramBot.sendMessage(sa.telegram_chat_id, message, { parse_mode: 'HTML' }).catch(err => {
+                console.error('Failed to notify super admin about email verification:', err.message);
+            });
+        }
+      }
+    } catch (err) {
+      console.error('Error sending Telegram notification for email verification:', err);
     }
 
     return { success: true };
