@@ -186,8 +186,40 @@ class AuthController {
         message: 'Password changed successfully'
       });
     } catch (error) {
-      console.error('Change password error:', error);
+      if (error.message === 'Invalid or expired token' || error.message === 'User not found') {
+        return res.status(401).json({
+          success: false,
+          message: error.message
+        });
+      }
 
+      res.status(500).json({
+        success: false,
+        message: 'Password change failed'
+      });
+    }
+  }
+
+  // ✅ SECURITY FIX: Token from request body instead of URL param.
+  //    Prevents token leaking into server logs, browser history, and Referer headers.
+  async changePasswordFromBody(req, res) {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: 'Token is required'
+        });
+      }
+
+      await authService.changePassword(token, newPassword);
+
+      res.json({
+        success: true,
+        message: 'Password changed successfully'
+      });
+    } catch (error) {
       if (error.message === 'Invalid or expired token' || error.message === 'User not found') {
         return res.status(401).json({
           success: false,
@@ -268,12 +300,10 @@ class AuthController {
         message: 'Profile updated successfully'
       });
     } catch (error) {
-      require('fs').appendFileSync('error.log', new Date().toISOString() + ' ' + error.stack + '\n');
-      console.error('Update profile error:', error);
+      // ✅ SECURITY FIX: Never expose stack traces to the client
       res.status(500).json({
         success: false,
-        message: 'Failed to update profile: ' + error.message,
-        stack: error.stack
+        message: 'Failed to update profile'
       });
     }
   }
