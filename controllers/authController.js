@@ -514,7 +514,11 @@ class AuthController {
         await authService.logout(req.user.id);
       }
 
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'None'
+      });
 
       res.json({
         success: true,
