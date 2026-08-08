@@ -545,6 +545,7 @@ class AuthController {
       }
 
       res.clearCookie('refreshToken', {
+        path: '/',
         httpOnly: true,
         secure: true,
         sameSite: 'None'
