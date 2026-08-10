@@ -431,6 +431,67 @@ const userController = {
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
+  },
+
+  // Public verification profile endpoint (No auth required)
+  async getPublicVerificationProfile(req, res) {
+    try {
+      const { id } = req.params;
+      const userFullProfile = await userService.getUserFullProfile(id);
+      if (!userFullProfile) {
+        return res.status(404).json({ success: false, message: 'Member not found' });
+      }
+
+      const profileData = userFullProfile.toJSON();
+
+      const { MonkSurvey, Address } = require('../models');
+      const survey = await MonkSurvey.findOne({ where: { user_id: id } });
+      const birthAddress = await Address.findOne({ where: { user_id: id, address_type: 'birth_place' } });
+
+      const nameKh = profileData.UserProfile ? `${profileData.UserProfile.first_name_kh || ''} ${profileData.UserProfile.last_name_kh || ''}`.trim() : '';
+      const nameEn = profileData.UserProfile ? `${profileData.UserProfile.first_name_en || ''} ${profileData.UserProfile.last_name_en || ''}`.trim() : '';
+
+      const formattedProfile = {
+        id: profileData.id,
+        email: profileData.email,
+        isActive: profileData.is_active,
+        name: nameKh || nameEn || profileData.name || 'សមាជិកវត្ត',
+        nameKh: nameKh,
+        nameEn: nameEn,
+        role: profileData.Role ? profileData.Role.name : null,
+        avatarUrl: profileData.UserProfile ? profileData.UserProfile.avatar_url : null,
+        phone: profileData.UserProfile ? (profileData.UserProfile.phone_number || profileData.phone || '') : '',
+        gender: profileData.UserProfile ? profileData.UserProfile.gender : null,
+        dateOfBirth: profileData.UserProfile ? profileData.UserProfile.date_of_birth : null,
+        chhayaNumber: profileData.UserProfile ? profileData.UserProfile.chhaya_number : null,
+        fromWat: profileData.UserProfile ? profileData.UserProfile.from_wat : null,
+        universityName: profileData.UserProfile ? profileData.UserProfile.university_name : null,
+        universityYear: profileData.UserProfile ? profileData.UserProfile.university_year : null,
+        seatingRowId: profileData.UserProfile ? profileData.UserProfile.seating_row_id : null,
+        seatNumber: profileData.UserProfile ? profileData.UserProfile.seat_number : null,
+        kut: profileData.UserProfile && profileData.UserProfile.Kut ? profileData.UserProfile.Kut : null,
+        monkSurvey: survey ? {
+          ordained_name: survey.ordained_name,
+          preceptor_name: survey.preceptor_name,
+          first_assistant_name: survey.first_assistant_name,
+          second_assistant_name: survey.second_assistant_name,
+          ordained_date: survey.ordained_date,
+          ordination_wat: survey.ordination_wat,
+          kudi_number: survey.kudi_number
+        } : null,
+        birthAddress: birthAddress ? {
+          village: birthAddress.village,
+          commune: birthAddress.commune,
+          district: birthAddress.district,
+          province: birthAddress.province
+        } : null
+      };
+
+      res.status(200).json({ success: true, data: formattedProfile });
+    } catch (error) {
+      console.error('Public verification error:', error);
+      res.status(404).json({ success: false, message: 'Member verification profile not found' });
+    }
   }
 };
 

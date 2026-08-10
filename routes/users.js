@@ -4,6 +4,9 @@ const userController = require('../controllers/userController');
 const { authenticate, authorize } = require('../middleware/auth');
 const { adminRegisterUserValidation, updateProfileValidation } = require('../middleware/validate');
 
+// Public verification route for member profile lookup via QR code (No auth required)
+router.get('/public-verify/:id', userController.getPublicVerificationProfile);
+
 router.use(authenticate);
 
 // Get user role stats
