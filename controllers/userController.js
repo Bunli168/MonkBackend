@@ -473,8 +473,6 @@ const userController = {
         monkSurvey: survey ? {
           ordained_name: survey.ordained_name,
           preceptor_name: survey.preceptor_name,
-          first_assistant_name: survey.first_assistant_name,
-          second_assistant_name: survey.second_assistant_name,
           ordained_date: survey.ordained_date,
           ordination_wat: survey.ordination_wat,
           kudi_number: survey.kudi_number
