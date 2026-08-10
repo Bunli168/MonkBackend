@@ -544,23 +544,25 @@ class AuthController {
         await authService.logout(req.user.id);
       }
 
-      const cookieOptions = {
-        path: '/',
-        httpOnly: true,
-        secure: true,
-        sameSite: 'None'
-      };
+      // Exhaustively clear refreshToken cookie across all possible path, secure, and sameSite variations
+      const clearVariations = [
+        { path: '/', httpOnly: true, secure: true, sameSite: 'None' },
+        { path: '/', httpOnly: true, secure: true, sameSite: 'Strict' },
+        { path: '/', httpOnly: true, secure: true, sameSite: 'Lax' },
+        { path: '/', httpOnly: true, secure: false, sameSite: 'Lax' },
+        { path: '/', httpOnly: true },
+        { path: '/' },
+        {}
+      ];
 
-      res.clearCookie('refreshToken', cookieOptions);
-      res.clearCookie('refreshToken', { path: '/' });
-      res.clearCookie('refreshToken');
+      clearVariations.forEach(opt => res.clearCookie('refreshToken', opt));
 
       res.json({
         success: true,
         message: 'Logged out successfully'
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout controller error:', error);
       res.status(500).json({
         success: false,
         message: 'Logout failed'
