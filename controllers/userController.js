@@ -433,11 +433,35 @@ const userController = {
     }
   },
 
-  // Public verification profile endpoint (No auth required)
+  // Public verification profile endpoint (No auth required, supports unguessable crypto hash tokens)
   async getPublicVerificationProfile(req, res) {
     try {
       const { id } = req.params;
-      const userFullProfile = await userService.getUserFullProfile(id);
+      const { User } = require('../models');
+      const crypto = require('crypto');
+      const secret = process.env.JWT_SECRET || 'neakavorn_secure_verify_salt_2026';
+
+      const getHash = (uid) => crypto.createHash('sha256').update(`NV_PROFILE_${uid}_${secret}`).digest('hex').substring(0, 16);
+
+      let targetUserId = null;
+
+      if (/^\d+$/.test(id)) {
+        // Direct ID lookup
+        targetUserId = parseInt(id, 10);
+      } else if (id && id.length === 16) {
+        // Find user matching hash token
+        const allUsers = await User.findAll({ attributes: ['id'] });
+        const matched = allUsers.find(u => getHash(u.id) === id);
+        if (matched) {
+          targetUserId = matched.id;
+        }
+      }
+
+      if (!targetUserId) {
+        return res.status(404).json({ success: false, message: 'Member verification profile not found' });
+      }
+
+      const userFullProfile = await userService.getUserFullProfile(targetUserId);
       if (!userFullProfile) {
         return res.status(404).json({ success: false, message: 'Member not found' });
       }
@@ -445,14 +469,15 @@ const userController = {
       const profileData = userFullProfile.toJSON();
 
       const { MonkSurvey, Address } = require('../models');
-      const survey = await MonkSurvey.findOne({ where: { user_id: id } });
-      const birthAddress = await Address.findOne({ where: { user_id: id, address_type: 'birth_place' } });
+      const survey = await MonkSurvey.findOne({ where: { user_id: targetUserId } });
+      const birthAddress = await Address.findOne({ where: { user_id: targetUserId, address_type: 'birth_place' } });
 
       const nameKh = profileData.UserProfile ? `${profileData.UserProfile.first_name_kh || ''} ${profileData.UserProfile.last_name_kh || ''}`.trim() : '';
       const nameEn = profileData.UserProfile ? `${profileData.UserProfile.first_name_en || ''} ${profileData.UserProfile.last_name_en || ''}`.trim() : '';
 
       const formattedProfile = {
         id: profileData.id,
+        verifyToken: getHash(profileData.id),
         email: profileData.email,
         isActive: profileData.is_active,
         name: nameKh || nameEn || profileData.name || 'សមាជិកវត្ត',
@@ -473,8 +498,6 @@ const userController = {
         monkSurvey: survey ? {
           ordained_name: survey.ordained_name,
           preceptor_name: survey.preceptor_name,
-          first_assistant_name: survey.first_assistant_name,
-          second_assistant_name: survey.second_assistant_name,
           ordained_date: survey.ordained_date,
           ordination_wat: survey.ordination_wat,
           kudi_number: survey.kudi_number
