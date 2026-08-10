@@ -39,4 +39,8 @@ router.post('/forgot-password', forgotPasswordValidation, authController.forgotP
 router.post('/reset-password', resetPasswordValidation, authController.resetPassword);
 router.post('/logout', authenticate, authController.logout);
 
+// Public member verification route via QR code (No auth required)
+const userController = require('../controllers/userController.js');
+router.get('/verify-member/:id', userController.getPublicVerificationProfile);
+
 module.exports = router;
