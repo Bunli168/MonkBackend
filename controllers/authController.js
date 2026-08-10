@@ -544,12 +544,16 @@ class AuthController {
         await authService.logout(req.user.id);
       }
 
-      res.clearCookie('refreshToken', {
+      const cookieOptions = {
         path: '/',
         httpOnly: true,
         secure: true,
         sameSite: 'None'
-      });
+      };
+
+      res.clearCookie('refreshToken', cookieOptions);
+      res.clearCookie('refreshToken', { path: '/' });
+      res.clearCookie('refreshToken');
 
       res.json({
         success: true,
