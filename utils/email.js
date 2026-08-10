@@ -63,7 +63,8 @@ const sendPasswordResetEmail = async (email, resetToken) => {
   if (!process.env.SMTP_HOST) {
     return false;
   }
-  const resetUrl = `${process.env.CORS_ORIGIN}/reset-password?token=${resetToken}`;
+  const frontendBase = process.env.FRONTEND_URL || (process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',')[0] : 'http://localhost:5174');
+  const resetUrl = `${frontendBase}/reset-password?token=${resetToken}`;
 
   const mailOptions = {
     from: `"Neakavorn" <${process.env.EMAIL_FROM || 'noreply@pagoda.com'}>`,

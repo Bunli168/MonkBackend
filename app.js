@@ -59,7 +59,15 @@ app.use(helmet({
         "'self'",
         "https://neakavorn.work.gd",
         "wss://neakavorn.work.gd",
-        ...(process.env.NODE_ENV === 'development' ? ["http://localhost:3006", "ws://localhost:3006"] : [])
+        ...(config.nodeEnv === 'development' ? [
+          "http://localhost:3006", "ws://localhost:3006",
+          "http://localhost:5173", "ws://localhost:5173",
+          "http://localhost:5174", "ws://localhost:5174",
+          "http://localhost:5175", "ws://localhost:5175",
+          "http://127.0.0.1:3006", "ws://127.0.0.1:3006",
+          "http://127.0.0.1:5173", "ws://127.0.0.1:5173",
+          "http://127.0.0.1:5174", "ws://127.0.0.1:5174"
+        ] : [])
       ],
       imgSrc: ["'self'", "data:", "blob:", "https://neakavorn.work.gd"],
       fontSrc: ["'self'", "data:"],
@@ -84,8 +92,7 @@ app.use(cors({
 // Rate limiting — general API
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
-  // ✅ Reduced from 5000 (too permissive) — 200 req per 15 min per IP is generous for normal usage
-  max: Math.min(config.rateLimit.maxRequests, 200),
+  max: config.nodeEnv === 'development' ? 2000 : Math.min(config.rateLimit.maxRequests, 300),
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests from this IP, please try again later.'

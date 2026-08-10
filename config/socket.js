@@ -2,12 +2,14 @@ const { Server } = require('socket.io');
 const { verifyAccessToken } = require('../utils/jwt.js');
 const { findById } = require('../models/User.js');
 
+const config = require('./index.js');
+
 let io;
 
 const initializeSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+      origin: config.corsOrigin,
       credentials: true
     }
   });
