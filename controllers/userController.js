@@ -470,16 +470,23 @@ const userController = {
         }
       }
 
-      if (!targetUserId) {
-        return res.status(404).json({ success: false, message: 'Invalid or expired verification QR link' });
+      let userFullProfile;
+      try {
+        userFullProfile = await userService.getUserFullProfile(targetUserId);
+      } catch (err) {
+        userFullProfile = await User.findByPk(targetUserId, {
+          include: [
+            { model: Role, attributes: ['name'] },
+            { model: UserProfile }
+          ]
+        });
       }
 
-      const userFullProfile = await userService.getUserFullProfile(targetUserId);
       if (!userFullProfile) {
         return res.status(404).json({ success: false, message: 'Member not found' });
       }
 
-      const profileData = userFullProfile.toJSON();
+      const profileData = userFullProfile.toJSON ? userFullProfile.toJSON() : userFullProfile;
 
       const { MonkSurvey, Address } = require('../models');
       const survey = await MonkSurvey.findOne({ where: { user_id: targetUserId } });
@@ -490,7 +497,7 @@ const userController = {
 
       const formattedProfile = {
         id: profileData.id,
-        verifyToken: getHash(profileData.id),
+        verifyToken: getSha256Hash(profileData.id),
         email: profileData.email,
         isActive: profileData.is_active,
         name: nameKh || nameEn || profileData.name || 'សមាជិកវត្ត',
