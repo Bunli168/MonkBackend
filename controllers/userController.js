@@ -433,7 +433,7 @@ const userController = {
     }
   },
 
-  // Public verification profile endpoint (No auth required, supports unguessable crypto hash tokens)
+  // Public verification profile endpoint (No auth required, ONLY supports unguessable crypto hash tokens)
   async getPublicVerificationProfile(req, res) {
     try {
       const { id } = req.params;
@@ -441,24 +441,39 @@ const userController = {
       const crypto = require('crypto');
       const secret = process.env.JWT_SECRET || 'neakavorn_secure_verify_salt_2026';
 
-      const getHash = (uid) => crypto.createHash('sha256').update(`NV_PROFILE_${uid}_${secret}`).digest('hex').substring(0, 16);
+      const getSha256Hash = (uid) => crypto.createHash('sha256').update(`NV_PROFILE_${uid}_${secret}`).digest('hex').substring(0, 16);
+
+      const getSyncHash = (uid) => {
+        const str = `NV_PROFILE_${uid}_${secret}`;
+        let h1 = 0xdeadbeef ^ 0, h2 = 0x41c6ce57 ^ 0;
+        for (let i = 0, ch; i < str.length; i++) {
+            ch = str.charCodeAt(i);
+            h1 = Math.imul(h1 ^ ch, 2654435761);
+            h2 = Math.imul(h2 ^ ch, 1597334677);
+        }
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        return ((h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0')).substring(0, 16);
+      };
+
+      // 🛑 SECURITY BLOCK: Plain numeric IDs (e.g. /verify-profile/3) are strictly prohibited!
+      if (/^\d+$/.test(id)) {
+        return res.status(404).json({ success: false, message: 'Invalid verification URL. Plain numbers are disabled for security.' });
+      }
 
       let targetUserId = null;
 
-      if (/^\d+$/.test(id)) {
-        // Direct ID lookup
-        targetUserId = parseInt(id, 10);
-      } else if (id && id.length === 16) {
+      if (id && id.length === 16) {
         // Find user matching hash token
         const allUsers = await User.findAll({ attributes: ['id'] });
-        const matched = allUsers.find(u => getHash(u.id) === id);
+        const matched = allUsers.find(u => getSha256Hash(u.id) === id || getSyncHash(u.id) === id);
         if (matched) {
           targetUserId = matched.id;
         }
       }
 
       if (!targetUserId) {
-        return res.status(404).json({ success: false, message: 'Member verification profile not found' });
+        return res.status(404).json({ success: false, message: 'Invalid or expired verification QR link' });
       }
 
       const userFullProfile = await userService.getUserFullProfile(targetUserId);
