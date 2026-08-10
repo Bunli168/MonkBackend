@@ -456,15 +456,13 @@ const userController = {
         return ((h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0')).substring(0, 16);
       };
 
-      // 🛑 SECURITY BLOCK: Plain numeric IDs (e.g. /verify-profile/3) are strictly prohibited!
-      if (/^\d+$/.test(id)) {
-        return res.status(404).json({ success: false, message: 'Invalid verification URL. Plain numbers are disabled for security.' });
-      }
-
       let targetUserId = null;
 
-      if (id && id.length === 16) {
-        // Find user matching hash token
+      if (/^\d+$/.test(id)) {
+        // Support numeric ID for previously downloaded/printed QR codes
+        targetUserId = parseInt(id, 10);
+      } else if (id && id.length === 16) {
+        // Find user matching unguessable hash token
         const allUsers = await User.findAll({ attributes: ['id'] });
         const matched = allUsers.find(u => getSha256Hash(u.id) === id || getSyncHash(u.id) === id);
         if (matched) {
@@ -472,16 +470,23 @@ const userController = {
         }
       }
 
-      if (!targetUserId) {
-        return res.status(404).json({ success: false, message: 'Invalid or expired verification QR link' });
+      let userFullProfile;
+      try {
+        userFullProfile = await userService.getUserFullProfile(targetUserId);
+      } catch (err) {
+        userFullProfile = await User.findByPk(targetUserId, {
+          include: [
+            { model: Role, attributes: ['name'] },
+            { model: UserProfile }
+          ]
+        });
       }
 
-      const userFullProfile = await userService.getUserFullProfile(targetUserId);
       if (!userFullProfile) {
         return res.status(404).json({ success: false, message: 'Member not found' });
       }
 
-      const profileData = userFullProfile.toJSON();
+      const profileData = userFullProfile.toJSON ? userFullProfile.toJSON() : userFullProfile;
 
       const { MonkSurvey, Address } = require('../models');
       const survey = await MonkSurvey.findOne({ where: { user_id: targetUserId } });
@@ -492,7 +497,7 @@ const userController = {
 
       const formattedProfile = {
         id: profileData.id,
-        verifyToken: getHash(profileData.id),
+        verifyToken: getSha256Hash(profileData.id),
         email: profileData.email,
         isActive: profileData.is_active,
         name: nameKh || nameEn || profileData.name || 'សមាជិកវត្ត',
