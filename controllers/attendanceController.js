@@ -373,7 +373,7 @@ const attendanceController = {
           ...user.toJSON(),
           fullName: fullName || user.email,
           netAbsents,
-          kudiNumber: profile?.kut_id || profile?.Kut?.name || null,
+          kudiNumber: profile?.Kut?.name || profile?.kut_id || null,
           rowNumber: profile?.SeatingRow?.row_num || null,
           seatNumber: profile?.seat_number || null,
           profile: profile ? {
